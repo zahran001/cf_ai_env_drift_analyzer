@@ -68,9 +68,13 @@
 ### C. Poll for Status/Result (UI → Worker → DO)
 
 1. UI polls: `GET /api/compare/:comparisonId`
-2. Worker routes to DO for the appropriate `pairKey` (either by embedding pairKey in comparisonId or via lookup table)
-3. DO returns `{ status, result?, error? }`
-4. UI stops polling on `completed`/`failed`
+2. Worker extracts `pairKey` from `comparisonId` prefix (format: `${pairKey}:${uuid}`)
+3. Worker obtains DO stub: `env.ENVPAIR_DO.get(env.ENVPAIR_DO.idFromName(pairKey))`
+4. Worker calls stub method: `stub.getComparison(comparisonId)`
+5. DO returns `{ status, result?, error? }`
+6. UI stops polling on `completed`/`failed`
+
+> **Note:** Worker must fetch a fresh stub on every request (never cache stub references across requests).
 
 ## 4. Data Contracts (Canonical Schemas)
 
@@ -241,6 +245,7 @@ Use `AbortController` per request or per full chain with a fixed total timeout (
 
 - Avoid Worker execution timeouts when doing 2 probes + LLM call
 - Provide explicit, auditable steps
+- Automatic retry-on-failure (requires idempotent steps)
 
 ### Workflow Steps (MVP)
 
@@ -250,9 +255,24 @@ Use `AbortController` per request or per full chain with a fixed total timeout (
 4. Probe right → persist probe
 5. Compute deterministic `EnvDiff` → findings
 6. DO: Load recent history snippet (last comparison result summary)
-7. Call LLM: Explain diff
+7. Call Workers AI: Explain diff (with exponential backoff retry: max 3 attempts)
 8. DO: Persist result + status = `completed`
 9. **On any exception:** DO status = `failed` with error message
+
+### Idempotency (Critical for Step Retries)
+
+Cloudflare Workflows auto-retry failed steps. Every `step.do()` call must be idempotent:
+- Probe IDs must be deterministic: `${comparisonId}:${side}`
+- DO methods must use upsert semantics (e.g., `INSERT OR REPLACE`)
+- Retrying step 3 or 4 must update the same probe record, never create duplicates
+- Example: If step 3 (persist left probe) retries, the second execution updates the existing record
+
+### Payload Size Constraints
+
+Avoid passing large payloads through `step.do()` boundaries:
+- Store SignalEnvelopes in DO immediately after probing (step 3–4)
+- Pass only references (`comparisonId`, `side`) between steps, not full envelopes
+- This keeps step payloads under the ~10MB workflow limit
 
 ## 8. API Surface
 
@@ -360,6 +380,7 @@ This helps mitigate SSRF-like probing.
 ### Rate Limiting (Light)
 
 - Per-IP rate limit in Worker (basic in-memory or DO-based) or simple "soft cap"
+- **Workers AI rate limiting:** Llama 3.3 has per-account quotas; if LLM call fails, retry with exponential backoff (max 3 attempts). If all retries fail, mark comparison as `failed` with error "LLM service unavailable" — do not fall back to deterministic-only results.
 
 ### Header Privacy
 

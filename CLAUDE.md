@@ -139,6 +139,12 @@ Workflow: `CompareEnvironments`
 - No long-running operations outside Workflow (Worker has strict timeouts)
 - Failures at any step must propagate to status = `failed` with clear reason
 - Workflow is the only entry point for comparison logic
+- **Idempotency (Critical for Workflow Retries):** Cloudflare Workflows retry failed steps automatically. Every `step.do()` call must be idempotent:
+  - DO methods must use **upsert semantics** (INSERT OR REPLACE) or check for existing records before insert
+  - Probes must be identified by immutable tuple `(comparisonId, side)`, not by auto-generated IDs
+  - Retrying step 4 or 6 (saveProbe) must **not create duplicate probe records** in SQLite
+  - Workflow must pass **stable, deterministic inputs** to steps; never generate new UUIDs inside steps
+  - Example: If step 4 executes twice, the second execution must update the existing probe record, not insert a new one
 
 ---
 
@@ -160,14 +166,20 @@ CREATE TABLE comparisons (
 );
 
 CREATE TABLE probes (
-  id TEXT PRIMARY KEY,
+  id TEXT PRIMARY KEY,          -- Must be stable: e.g., "${comparisonId}:${side}" for idempotency
   comparison_id TEXT,
   ts INTEGER,
   side TEXT CHECK(side IN ('left', 'right')),
   url TEXT,
-  envelope_json TEXT
+  envelope_json TEXT,
+  UNIQUE(comparison_id, side)   -- Enforce single probe per side per comparison
 );
 ```
+
+**Probe ID Format (for idempotency):**
+- Probe `id` must be deterministic: `${comparisonId}:${side}`
+- This ensures retrying `saveProbe(comparisonId, "left", envelope)` updates the same record, not insert a duplicate
+- Alternative: Use `UNIQUE(comparison_id, side)` constraint with `INSERT OR REPLACE` semantics
 
 **DO methods:**
 - `createComparison(leftUrl, rightUrl) → { comparisonId, status: "running" }`
@@ -201,6 +213,31 @@ CREATE TABLE probes (
 - AI output must be validated as JSON before use
 - Must include minimal historical context in prompt
 - Must not speculate beyond available signals
+
+---
+
+### 2.5 Cloudflare Platform Constraints
+
+**Workers AI Rate Limiting & Availability:**
+- Workers AI has per-account rate limits and quota
+- Llama 3.3 availability varies by region and load
+- If LLM call fails (rate limit, unavailable, timeout):
+  - Retry with exponential backoff (max 3 attempts)
+  - If all retries fail: mark comparison as `failed` with error "LLM service unavailable"
+  - Do **not** fall back to deterministic-only results; the contract requires LLM explanation
+
+**Workflow Input/Output Size Limits:**
+- Workflow step inputs/outputs must stay under ~10MB each
+- Do **not** pass full SignalEnvelopes through `step.do()` boundaries; instead:
+  - Store large envelopes in DO immediately after probe
+  - Pass only `comparisonId` and `side` reference between steps
+  - Reconstruct envelope from DO when needed
+
+**Durable Object Storage Quota:**
+- Each DO instance has ~100MB of SQLite storage
+- Ring buffer retention (default 50 comparisons) must be enforced on every insert
+- If a DO approaches quota, oldest comparisons are deleted automatically
+- No migration or backup strategy in MVP; Phase 2 will add quota monitoring
 
 ---
 
@@ -339,11 +376,25 @@ CREATE TABLE probes (
 ### 4.4 Worker → Durable Object (Poll)
 
 **Worker must:**
-- Extract `pairKey` from `comparisonId` prefix
-- Route poll request to correct DO instance
+- Extract `pairKey` from `comparisonId` prefix (before the `:` separator)
+- Obtain the Durable Object stub: `env.ENVPAIR_DO.idFromName(pairKey)` → fetch stub
+- Call stub method: `stub.getComparison(comparisonId)` to fetch authoritative state
 - Return `{ status }` if running
 - Return `{ status, result }` if completed
 - Return `{ status, error }` if failed
+
+**Example (TypeScript):**
+```typescript
+const pairKey = comparisonId.split(':')[0];
+const stub = env.ENVPAIR_DO.get(env.ENVPAIR_DO.idFromName(pairKey));
+const state = await stub.getComparison(comparisonId);
+return new Response(JSON.stringify(state), { status: 200 });
+```
+
+**Invariants:**
+- Worker must use `idFromName(pairKey)` to compute stable DO id (not arbitrary UUIDs)
+- Worker must fetch a fresh stub on every request (never cache stub references)
+- DO state is the authoritative source; Worker has no local caching of comparison state
 
 ---
 
@@ -686,6 +737,7 @@ LLM may accept additional context fields if:
 - Call LLM before computing diff
 - Access Workflow state directly from Worker
 - Cache DO state in Worker memory across requests
+- Cache DO stub references across requests (re-fetch stub on every request)
 - Store secrets or credentials in any form
 - Accept user-provided headers in probe requests
 - Follow redirects automatically (must use manual mode)
@@ -697,6 +749,8 @@ LLM may accept additional context fields if:
 - Call Worker functions directly from Workflow
 - Use timestamps for comparison logic (only for storage metadata)
 - Speculate in LLM output (ground in diff only)
+- Pass full SignalEnvelopes through Workflow `step.do()` boundaries without storing in DO first
+- Retry LLM failures indefinitely; use bounded exponential backoff (max 3 attempts)
 
 ---
 
@@ -718,10 +772,17 @@ LLM may accept additional context fields if:
 Before merging any PR:
 - [ ] No new SignalEnvelope fields without schema_version bump
 - [ ] All Workflow network ops use step.do()
+- [ ] All Workflow steps are idempotent (test retry scenario)
+- [ ] Probe IDs use deterministic format: `${comparisonId}:${side}`
+- [ ] DO probe table has UNIQUE(comparison_id, side) constraint
 - [ ] Diff output is deterministic (test with same input twice)
 - [ ] LLM output validated before persistence
+- [ ] LLM failures retry with bounded exponential backoff (max 3 attempts)
 - [ ] DO methods called only from Workflow
-- [ ] Ring buffer retention verified
+- [ ] Worker uses `idFromName(pairKey)` to route polls to correct DO instance
+- [ ] Worker does not cache DO stub references across requests
+- [ ] Large payloads (SignalEnvelopes) stored in DO before Workflow step.do() calls
+- [ ] Ring buffer retention verified (default 50, configurable)
 - [ ] Error propagated to DO.failComparison
 - [ ] Frontend only polls DO via Worker API
 - [ ] URL validation rejects private IPs
@@ -733,4 +794,22 @@ Before merging any PR:
 ---
 
 **Last Updated:** 2026-01-05
-**Version:** 1.0 (MVP)
+**Version:** 1.1 (MVP with Cloudflare-specific refinements)
+
+---
+
+## Changelog
+
+### v1.1 (2026-01-05) — Cloudflare-Specific Refinements
+- Added explicit idempotency requirements for Workflow steps (section 2.2)
+- Clarified Probe ID format and UNIQUE constraints for idempotency (section 2.3)
+- Added DO stub handling mechanics with example code (section 4.4)
+- New section 2.5: Cloudflare Platform Constraints (rate limiting, payload sizes, storage quota)
+- Updated Prohibited Actions to cover DO stub caching and LLM retry bounds
+- Expanded Code Review Checklist with new Cloudflare-specific items
+
+### v1.0 (2026-01-05) — Initial MVP Rulebook
+- Core contracts (SignalEnvelope, EnvDiff, LLM output)
+- Platform stack (Workers, Workflows, DO, Workers AI)
+- Module boundaries and data flow rules
+- Implementation constraints and security guardrails
