@@ -1,6 +1,6 @@
 // shared/diff.ts
 
-import type { SignalEnvelope } from "./signal";
+import type { SignalEnvelope, RedirectHop } from "./signal";
 
 /**
  * Increment only on breaking changes.
@@ -20,7 +20,7 @@ export type FindingCategory =
   | "unknown";
 
 /**
- * Generic “changed value” representation.
+ * Generic "changed value" representation.
  * Deterministic and easy to snapshot-test.
  */
 export type Change<T> = {
@@ -40,28 +40,6 @@ export const changed = <T>(left: T | undefined, right: T | undefined): Change<T>
   right,
   changed: true
 });
-
-/**
- * Deterministic header diff model.
- * Keys MUST be lowercase.
- *
- * For changed headers:
- *   changed["cache-control"] = { left: "...", right: "...", changed: true }
- */
-export type HeaderMap = Record<string, string>;
-
-export type HeaderDiff = {
-  added: HeaderMap; // present only on right
-  removed: HeaderMap; // present only on left
-  changed: Record<string, Change<string>>; // present both, values differ
-  unchanged: HeaderMap; // present both, same value
-};
-
-export type RedirectHop = {
-  fromUrl: string;
-  toUrl: string;
-  status: number;
-};
 
 export type RedirectDiff = {
   // Chains as recorded (or empty array if not present)
@@ -124,6 +102,17 @@ export type DiffFindingCode =
   | "PROBE_FAILURE"
   | "UNKNOWN_DRIFT";
 
+/**
+ * Mirrors the allowlisted core headers in shared/signal.ts.
+ * Keys MUST be lowercase.
+ */
+export type CoreHeaderKey =
+  | "cache-control"
+  | "content-type"
+  | "vary"
+  | "www-authenticate"
+  | "location";
+
 export type DiffEvidence = {
   // Deterministic pointers into the structured diff, not free-form JSON paths.
   // Example: { section: "headers", keys: ["cache-control"] }
@@ -138,6 +127,20 @@ export type DiffEvidence = {
     | "probe";
   keys?: string[];
   note?: string;
+};
+
+/**
+ * Deterministic header diff model.
+ * Keys MUST be lowercase.
+ *
+ * Generic type allows strong typing for core headers while keeping
+ * access-control headers flexible (Record<string, ...>).
+ */
+export type HeaderDiff<K extends string = string> = {
+  added: Partial<Record<K, string>>; // present only on right
+  removed: Partial<Record<K, string>>; // present only on left
+  changed: Partial<Record<K, Change<string>>>; // present both, values differ
+  unchanged: Partial<Record<K, string>>; // present both, same value
 };
 
 export type DiffFinding = {
@@ -163,10 +166,13 @@ export type DiffFinding = {
 /**
  * When probes fail, we still want a deterministic diff.
  * This captures top-level probe outcomes.
+ *
+ * In the comparison pipeline, left and right envelopes are always
+ * present once created, so leftOk and rightOk are required.
  */
 export type ProbeOutcomeDiff = {
-  leftOk?: boolean;
-  rightOk?: boolean;
+  leftOk: boolean;
+  rightOk: boolean;
 
   /**
    * If a probe failed, capture stable error codes (if available),
@@ -208,8 +214,8 @@ export type EnvDiff = {
   finalUrl?: Change<string>;
 
   headers?: {
-    core: HeaderDiff;
-    accessControl?: HeaderDiff;
+    core: HeaderDiff<CoreHeaderKey>;
+    accessControl?: HeaderDiff<string>;
   };
 
   redirects?: RedirectDiff;
