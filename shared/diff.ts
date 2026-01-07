@@ -13,7 +13,6 @@ export type FindingCategory =
   | "routing"
   | "security"
   | "cache"
-  | "headers"
   | "content"
   | "timing"
   | "platform"
@@ -87,20 +86,27 @@ export type CfContextDiff = {
  * Findings are deterministic classifications produced by B2
  * (NOT the LLM explanation).
  */
-export type DiffFindingCode =
-  | "STATUS_MISMATCH"
-  | "FINAL_URL_MISMATCH"
-  | "REDIRECT_CHAIN_CHANGED"
-  | "CACHE_HEADER_DRIFT"
-  | "CORS_HEADER_DRIFT"
-  | "AUTH_CHALLENGE_PRESENT"
-  | "CONTENT_TYPE_DRIFT"
-  | "BODY_HASH_DRIFT"
-  | "CONTENT_LENGTH_DRIFT"
-  | "TIMING_DRIFT"
-  | "CF_CONTEXT_DRIFT"
-  | "PROBE_FAILURE"
-  | "UNKNOWN_DRIFT";
+/**
+ * Finding codes emitted by the deterministic classifier (Phase B2).
+ * Keep this list in sync with Phase-B2.md.
+ */
+export const FINDING_CODES = [
+  "PROBE_FAILURE",
+  "STATUS_MISMATCH",
+  "FINAL_URL_MISMATCH",
+  "REDIRECT_CHAIN_CHANGED",
+  "AUTH_CHALLENGE_PRESENT",
+  "CORS_HEADER_DRIFT",
+  "CACHE_HEADER_DRIFT",
+  "CONTENT_TYPE_DRIFT",
+  "BODY_HASH_DRIFT",
+  "CONTENT_LENGTH_DRIFT",
+  "TIMING_DRIFT",
+  "CF_CONTEXT_DRIFT",
+  "UNKNOWN_DRIFT",
+] as const;
+
+export type DiffFindingCode = (typeof FINDING_CODES)[number];
 
 /**
  * Mirrors the allowlisted core headers in shared/signal.ts.
@@ -144,6 +150,12 @@ export type HeaderDiff<K extends string = string> = {
 };
 
 export type DiffFinding = {
+  /**
+   * Stable identifier for this finding within a diff.
+   * Recommended format: `${code}:${section}:${keysJoined}`.
+   */
+  id: string;
+
   code: DiffFindingCode;
   category: FindingCategory;
   severity: Severity;
@@ -153,6 +165,13 @@ export type DiffFinding = {
    * Example: "cache-control differs"
    */
   message: string;
+
+  /**
+   * Optional raw values for UI/debugging and future prompting.
+   * Keep these small and deterministic.
+   */
+  left_value?: unknown;
+  right_value?: unknown;
 
   evidence?: DiffEvidence[];
 
