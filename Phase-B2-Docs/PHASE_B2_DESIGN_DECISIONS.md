@@ -69,6 +69,18 @@ export function validateDiffEvidence(evidence: DiffEvidence): boolean {
 
 ---
 
+## ✅ DECISION MADE (2026-01-07): Option B — Soft Correlation
+
+**Status:** RESOLVED — See PHASE_B2_OPEN_DECISION.md for full context.
+
+**Implementation:** Always emit CF_CONTEXT_DRIFT if CF context differs, but severity depends on timing drift presence:
+- Severity = `warn` if TIMING_DRIFT is also present
+- Severity = `info` if no timing drift
+
+**Rationale:** Infrastructure visibility; users see colo/ASN changes even if they haven't impacted performance yet.
+
+---
+
 ## 2. Evidence Deduplication & ID Generation
 
 ### Issue

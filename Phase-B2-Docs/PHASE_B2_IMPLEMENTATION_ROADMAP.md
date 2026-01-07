@@ -6,14 +6,21 @@
 
 ## Pre-Implementation Setup (Do First)
 
-### 1. Resolve Ambiguity: CF Context Drift Correlation
-**Action Required:** Update Phase-B2.md §4.F1
-- [ ] **Decide:** Does CF_CONTEXT_DRIFT require **hard correlation** with TIMING_DRIFT (omit if no timing drift)?
-  - OR **soft correlation** (lower severity if no timing drift)?
-- [ ] **Document** decision in Phase-B2.md
-- [ ] **Update classify.ts logic** accordingly
+### ✅ 1. Resolve Ambiguity: CF Context Drift Correlation — COMPLETED
+**Decision (2026-01-07):** Option B — Soft Correlation
 
-**Blocking:** Implementation of Rule F1
+- ✅ **Decided:** CF_CONTEXT_DRIFT uses **soft correlation** (lower severity if no timing drift)
+- ✅ **Documented** in Phase-B2.md §4.F1
+- ✅ **Ready for:** classify.ts Rule F1 implementation
+
+**Implementation Rule:**
+```typescript
+if (cfContextDiffers) {
+  severity = hasTimingDrift ? "warn" : "info";
+}
+```
+
+**Rationale:** Infrastructure visibility; users see colo/ASN changes even if timing unaffected (yet).
 
 ---
 

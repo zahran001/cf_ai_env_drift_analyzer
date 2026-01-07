@@ -242,7 +242,10 @@ keys: ["asn", "colo"]
 
 ```
 
-- `warn` only if correlated with timing drift
+- **Decision (2026-01-07):** Soft Correlation (Option B)
+- Emitted if CF context (colo/asn/country) differs between probes
+- Severity: `warn` if correlated with timing drift, `info` otherwise
+  - (This means: always emit if CF differs, but severity depends on whether timing also drifts)
 
 ---
 
