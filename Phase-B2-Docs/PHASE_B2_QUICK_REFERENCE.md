@@ -4,11 +4,11 @@
 
 ---
 
-## Critical Ambiguities (Must Resolve)
+## Critical Ambiguities (All Resolved ✅)
 
 | # | Issue | Decision | Impact |
 |---|-------|----------|--------|
-| 1 | CF context drift correlation with timing | **OPEN** — Clarify hard vs soft correlation | Rule F1 implementation |
+| 1 | CF context drift correlation with timing | ✅ **RESOLVED (2026-01-07):** Soft Correlation (Option B) — Always emit CF_CONTEXT_DRIFT; severity = `warn` if timing drifts, `info` otherwise | Rule F1 implementation |
 
 ---
 
@@ -46,7 +46,7 @@ section → valid keys
 | BODY_HASH_DRIFT | content | critical if status and content-type unchanged |
 | CONTENT_LENGTH_DRIFT | content | info < 200B, warn 200–2000B, critical ≥ 2000B + same status |
 | TIMING_DRIFT | timing | Based on thresholds (see below) |
-| CF_CONTEXT_DRIFT | platform | warn if timing drift, else info (or omit?) |
+| CF_CONTEXT_DRIFT | platform | warn if timing drift, info otherwise (soft correlation) |
 | UNKNOWN_DRIFT | unknown | Catch-all for unclassified header drift |
 
 ---
@@ -266,7 +266,7 @@ delta ≥ 2000 && status changed → warn
 
 ## Next Steps Checklist
 
-- [ ] Clarify CF context correlation (hard or soft?)
+- [x] ✅ Clarify CF context correlation (soft correlation decided 2026-01-07)
 - [ ] Create `src/analysis/` module files
 - [ ] Implement utilities in order (🔴 critical first)
 - [ ] Write unit tests for each utility

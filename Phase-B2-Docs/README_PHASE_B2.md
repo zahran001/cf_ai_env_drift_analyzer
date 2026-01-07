@@ -26,12 +26,12 @@
 4. PHASE_B2_IMPLEMENTATION_ROADMAP.md (10 min) — Understand the plan
 ```
 
-### 2. Make One Decision
-**Question:** CF Context Drift Correlation
-- Read: `PHASE_B2_OPEN_DECISION.md`
-- Choose: Option A (hard) or Option B (soft)
-- Update: Phase-B2.md §4.F1
-- Document: Your choice in the codebase
+### 2. ✅ Decision Made: CF Context Drift Correlation
+**Question:** CF Context Drift Correlation — **RESOLVED (2026-01-07)**
+- **Decision:** Option B (Soft Correlation)
+- ✅ Updated: Phase-B2.md §4.F1
+- ✅ Documented: PHASE_B2_OPEN_DECISION.md, DECISION_LOG.md
+- **Implementation:** Always emit CF_CONTEXT_DRIFT; severity = `warn` if timing drifts, `info` otherwise
 
 ### 3. Create File Structure
 ```
@@ -234,12 +234,12 @@ Before Phase B2 is complete:
 
 ## 🎯 Immediate Next Steps
 
-1. **Read** PHASE_B2_QUICK_REFERENCE.md (5 min)
-2. **Decide** on CF context correlation (5–10 min discussion)
-3. **Update** Phase-B2.md §4.F1 with decision
-4. **Create** src/analysis/ directory structure
-5. **Start** with probeUtils.ts (first utility)
-6. **Write** tests alongside implementation
+1. ✅ **Decision made** on CF context correlation → Soft Correlation (Option B)
+2. ✅ **Phase-B2.md §4.F1 updated** with decision
+3. **Create** src/analysis/ directory structure (9 utility modules + classify.ts)
+4. **Start** with probeUtils.ts (first 🔴 critical utility)
+5. **Write** unit tests alongside implementation
+6. **Build** utilities in dependency order (see PHASE_B2_IMPLEMENTATION_ROADMAP.md)
 
 ---
 

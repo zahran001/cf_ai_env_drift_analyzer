@@ -1,0 +1,249 @@
+================================================================================
+                    PHASE B2 STATUS REPORT
+                    2026-01-07 — Ready for Implementation
+================================================================================
+
+PROJECT: cf_ai_env_drift_analyzer
+PHASE: B2 — Deterministic Diff Engine
+STATUS: ✅ READY FOR IMPLEMENTATION
+
+================================================================================
+DECISIONS REQUIRED
+================================================================================
+
+CF Context Drift Correlation
+  Decision: ✅ RESOLVED (2026-01-07)
+  Choice:   Option B — Soft Correlation (More informative)
+  Impact:   Rule F1 (CF_CONTEXT_DRIFT) implementation
+  Status:   Documented in Phase-B2.md §4.F1, DECISION_LOG.md
+
+Other Decisions: ✅ ALL 15 DESIGN DECISIONS DOCUMENTED
+
+================================================================================
+DOCUMENTATION STATUS
+================================================================================
+
+✅ AUTHORITATIVE SPECS (Frozen)
+   • Phase-B2.md              306 lines — 14 rule groups, complete rulebook
+   • shared/diff.ts           269 lines — All TypeScript contracts
+   • shared/signal.ts         Locked — SignalEnvelope canonical form
+   • CLAUDE.md                System constraints & code review checklist
+
+✅ DESIGN & PLANNING (Finalized)
+   • PHASE_B2_DESIGN_DECISIONS.md        15 design decisions + code examples
+   • PHASE_B2_IMPLEMENTATION_ROADMAP.md  Ordered steps, timeline, strategy
+   • PHASE_B2_QUICK_REFERENCE.md         One-page lookup card (UPDATED)
+   • README_PHASE_B2.md                  Overview & next steps (UPDATED)
+   • PHASE_B2_OPEN_DECISION.md           Decision history (options preserved)
+   • DECISION_LOG.md                     Decision journal entry (NEW)
+   • READINESS_CHECKLIST.md              Pre-implementation checklist (NEW)
+   • PHASE_B2_INPUT_REQUIRED.md          Input areas summary (NEW)
+   • This file (STATUS_REPORT.txt)       Executive summary (NEW)
+
+================================================================================
+CODEBASE STATUS
+================================================================================
+
+✅ Ready (Locked Contracts)
+   / shared/signal.ts
+   / shared/diff.ts         (needs 5 helper functions)
+   / shared/api.ts
+
+⏳ To Be Implemented
+   X src/analysis/probeUtils.ts        (9 utilities to build)
+   X src/analysis/urlUtils.ts
+   X src/analysis/classifiers.ts
+   X src/analysis/headerDiff.ts
+   X src/analysis/contentUtils.ts
+   X src/analysis/redirectUtils.ts
+   X src/analysis/cacheUtils.ts
+   X src/analysis/validators.ts
+   X src/analysis/constants.ts
+   X src/analysis/classify.ts           (main orchestrator)
+   X src/analysis/__tests__/            (unit + integration tests)
+
+================================================================================
+IMPLEMENTATION PLAN
+================================================================================
+
+ORDER:
+  1. Create src/analysis/ directory structure
+  2. Add helper functions to shared/diff.ts (5 functions)
+  3. Implement utilities (9 modules) in dependency order
+  4. Write unit tests for each utility (parallel with implementation)
+  5. Implement classify.ts (orchestrator)
+  6. Write integration tests (all 14 rule groups)
+
+EFFORT ESTIMATE: 9-13 hours
+  • Utilities:     4-6 hours  (9 modules, mostly straightforward)
+  • classify.ts:   2-3 hours  (orchestration)
+  • Testing:       2-3 hours  (unit + integration + snapshots)
+
+BLOCKING DEPENDENCIES: NONE
+  • All decisions made OK
+  • All specs locked OK
+  • All design patterns documented OK
+  • Ready to code OK
+
+================================================================================
+PHASE B2 SCOPE (14 Finding Rules)
+================================================================================
+
+Rule Groups:
+  A (2 rules):  Probe outcomes (success/failure)
+  B (3 rules):  Routing (status, final URL, redirects)
+  C (2 rules):  Security (auth challenge, CORS)
+  D (5 rules):  Content & cache (type, length, hash, cache-control, vary)
+  E (1 rule):   Timing drift
+  F (1 rule):   CF context drift
+  G (1 rule):   Catch-all for unclassified headers
+  ____________________________________________________________
+  TOTAL: 14 rules → ~1100 LOC + ~400 LOC tests
+
+================================================================================
+KEY CONSTRAINTS (Must Follow)
+================================================================================
+
+1. DETERMINISM
+   • Same inputs = identical output every time
+   • No timestamps, randomness, or external state
+   • Must be byte-stable and snapshot-testable
+
+2. EVIDENCE VOCABULARY (Phase-B2.md §1.3)
+   • "probe"     = undefined | "left" | "right"
+   • "status"    = undefined
+   • "finalUrl"  = undefined | "scheme" | "host" | "path" | "query" | "finalUrl"
+   • "redirects" = undefined | "hopCount" | "chain" | "finalHost"
+   • "headers"   = [lowercase header names]
+   • "content"   = undefined | "content-type" | "content-length" | "body-hash"
+   • "timing"    = undefined | "duration_ms"
+   • "cf"        = undefined | "colo" | "asn" | "country"
+
+3. HEADER WHITELIST
+   • cache-control, content-type, vary, www-authenticate, location
+   • All access-control-* headers
+   • NO OTHER HEADERS CAPTURED
+
+4. SORTING (Final output)
+   • By (severity DESC, code ASC, message ASC)
+   • critical > warn > info
+
+5. DEDUPLICATION
+   • By (code, section, sorted keys)
+   • Collapse identical findings to one
+
+6. NO LLM IN PHASE B2
+   • Pure deterministic engine
+   • LLM explanation comes later (Phase B5)
+
+================================================================================
+DECISION DETAILS: CF CONTEXT DRIFT (YOUR CHOICE)
+================================================================================
+
+Question: How should CF context (colo/ASN/country) differences be handled?
+
+Your Choice: SOFT CORRELATION (Option B)
+
+Means:
+  • Always emit CF_CONTEXT_DRIFT finding when CF differs
+  • Severity = "warn" if TIMING_DRIFT is also present
+  • Severity = "info" if timing is unchanged
+
+Why:
+  • Infrastructure visibility: Users see when colo/ASN changes
+  • Actionable severity: Indicates whether change impacts performance
+  • Better for debugging: Infrastructure engineers can correlate changes
+  • Flexible: Can switch to hard correlation in Phase 2 if too noisy
+
+Documentation:
+  • Phase-B2.md §4.F1          — Updated rule
+  • DECISION_LOG.md             — Full rationale
+  • PHASE_B2_OPEN_DECISION.md   — Alternatives (struck-through)
+
+================================================================================
+QUICK START (3 STEPS)
+================================================================================
+
+1. Read PHASE_B2_QUICK_REFERENCE.md (5 minutes)
+   → Understand vocabulary, constants, finding codes
+
+2. Create src/analysis/ structure
+   → mkdir -p src/analysis/__tests__
+   → Create all utility stubs
+
+3. Start with probeUtils.ts
+   → Reference: PHASE_B2_DESIGN_DECISIONS.md #13
+   → Rule: Phase-B2.md §4.A (Probe Outcome Rules)
+
+================================================================================
+VERIFICATION CHECKLIST (Pre-Code Review)
+================================================================================
+
+Before Phase B2 is done, verify:
+  [ ] All 9 utility modules implemented
+  [ ] All 14 rule groups in classify.ts
+  [ ] Unit tests pass for each utility
+  [ ] Integration tests pass (all rules)
+  [ ] Output matches Phase-B2.md examples byte-for-byte
+  [ ] Evidence keys validated (Phase-B2.md §1.3)
+  [ ] Findings sorted correctly (severity, code, message)
+  [ ] maxSeverity computed correctly
+  [ ] No timestamps or randomness in diff engine
+  [ ] Code review checklist complete (CLAUDE.md §15)
+
+================================================================================
+REFERENCE DOCUMENTS (Quick Navigation)
+================================================================================
+
+Executive Overview:
+  → README_PHASE_B2.md
+  → This file (STATUS_REPORT.txt)
+
+Understanding WHY:
+  → PHASE_B2_DESIGN_DECISIONS.md (15 decisions with rationale)
+
+Understanding WHAT:
+  → Phase-B2.md (authoritative rules)
+  → PHASE_B2_QUICK_REFERENCE.md (one-page card)
+
+Understanding HOW:
+  → PHASE_B2_IMPLEMENTATION_ROADMAP.md (step-by-step)
+  → READINESS_CHECKLIST.md (pre-implementation checklist)
+
+Decision History:
+  → PHASE_B2_OPEN_DECISION.md (full context, struck-through options)
+  → DECISION_LOG.md (decision journal)
+
+Are we ready?
+  → PHASE_B2_INPUT_REQUIRED.md (areas needing your input)
+
+System Rules:
+  → CLAUDE.md (sections 1-3 and 15)
+
+================================================================================
+FINAL STATUS
+================================================================================
+
+Blocking Decisions:          OK RESOLVED (CF context → Soft Correlation)
+Authoritative Specs:        OK LOCKED (Phase-B2.md, shared/)
+Design Decisions:           OK ALL 15 DOCUMENTED
+Implementation Plan:        OK READY (ordered, dependencies clear)
+Code Prerequisites:         OK CONTRACTS DEFINED
+Testing Strategy:           OK SNAPSHOT TESTS PLANNED
+
+GREEN STATUS: READY FOR IMPLEMENTATION
+
+You can start coding immediately. No further decisions needed.
+
+================================================================================
+NEXT MOVE
+================================================================================
+
+→ Start with probeUtils.ts
+→ Follow Phase-B2.md §5 rule generation order
+→ Write tests alongside implementation
+→ Reference PHASE_B2_QUICK_REFERENCE.md constantly
+
+Questions? Check PHASE_B2_INPUT_REQUIRED.md — it explains everything.
+
+================================================================================
