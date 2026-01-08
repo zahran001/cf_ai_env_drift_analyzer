@@ -66,20 +66,25 @@ Output: EnvDiff with deterministic findings[]
 
 ### MVP Utilities (9 Total)
 
-| # | Module | Lines | Time | Type |
-|---|--------|-------|------|------|
-| 1 | probeUtils.ts | ~30 | 0.5h | 🔴 Must Have |
-| 2 | classifiers.ts | ~40 | 0.25h | 🔴 Must Have |
-| 3 | urlUtils.ts | ~50 | 0.5h | 🔴 Must Have |
-| 4 | headerDiff.ts | ~100 | 1h | 🔴 Must Have |
-| 5 | contentUtils.ts | ~60 | 0.5h | 🔴 Must Have |
-| 6 | redirectUtils.ts | ~60 | 0.5h | 🔴 Must Have |
-| 7 | cacheUtils.ts | ~40 | 0.25h | 🟡 Nice to Have |
-| 8 | validators.ts | ~50 | 0.5h | 🟡 Nice to Have (but needed for tests) |
-| 9 | constants.ts | ~30 | 0.25h | 🟡 Nice to Have |
-| — | classify.ts | ~300 | 2–3h | 🔴 Must Have |
-| — | Tests | ~400 | 2–3h | 🔴 Must Have |
-| — | **Total** | ~1100 | **9–13h** | |
+All 9 utilities are **🔴 Must Have** because Phase-B2.md depends on them:
+- `cacheUtils.ts` → Rule D1 (cache-control drift)
+- `validators.ts` → deterministic testing, evidence key validation
+- `constants.ts` → hardcoded thresholds (no runtime config)
+
+| # | Module | Lines | Time | Type | Reason |
+|---|--------|-------|------|------|--------|
+| 1 | probeUtils.ts | ~30 | 0.5h | 🔴 Must Have | No dependencies, foundation for all rules |
+| 2 | classifiers.ts | ~40 | 0.25h | 🔴 Must Have | Status code severity (Rule B1) |
+| 3 | urlUtils.ts | ~50 | 0.5h | 🔴 Must Have | URL parsing & drift (Rules B2–B3) |
+| 4 | headerDiff.ts | ~100 | 1h | 🔴 Must Have | Header comparison (Rules C1–C2) |
+| 5 | contentUtils.ts | ~60 | 0.5h | 🔴 Must Have | Content-type normalization (Rules D2–D3) |
+| 6 | redirectUtils.ts | ~60 | 0.5h | 🔴 Must Have | Redirect chain comparison (Rule E1) |
+| 7 | cacheUtils.ts | ~40 | 0.25h | 🔴 Must Have | Cache-control parsing (Rule D1) |
+| 8 | validators.ts | ~50 | 0.5h | 🔴 Must Have | Evidence key validation, snapshot tests |
+| 9 | constants.ts | ~30 | 0.25h | 🔴 Must Have | Centralized thresholds (determinism) |
+| — | classify.ts | ~300 | 2–3h | 🔴 Must Have | Orchestrates all 14 rules |
+| — | Tests | ~400 | 2–3h | 🔴 Must Have | Integration snapshots, all 14 rules |
+| — | **Total** | ~1100 | **9–13h** | | |
 
 ---
 
@@ -290,18 +295,20 @@ describe("Phase B2 Integration — All 14 Rules", () => {
 
 ✅ Before you call Phase B2 done:
 
-- [ ] All 9 utility modules implemented
+- [ ] All 9 utility modules implemented (probeUtils, classifiers, urlUtils, headerDiff, contentUtils, redirectUtils, cacheUtils, validators, constants)
 - [ ] `computeEnvDiff()` orchestrates all 14 rules in Phase-B2.md §5 order
-- [ ] Unit tests pass for each utility
-- [ ] Integration tests pass (all 14 rules)
+- [ ] Unit tests pass for each utility (9 utilities)
+- [ ] Integration tests pass (all 14 rules with snapshot matching)
 - [ ] Output matches Phase-B2.md examples byte-for-byte
-- [ ] Evidence keys validated (Phase-B2.md §1.3)
-- [ ] Findings sorted by (severity, code, message)
-- [ ] maxSeverity computed correctly
-- [ ] No timestamps or randomness in diff engine
+- [ ] Evidence keys validated against Phase-B2.md §1.3 whitelist
+- [ ] Findings sorted by (severity, code, message) deterministically
+- [ ] maxSeverity computed correctly (critical > warning > info)
+- [ ] No timestamps, UUIDs, or randomness in diff engine
+- [ ] Rule D1 (cache-control) passes with cacheUtils.ts
+- [ ] Validators confirm evidence key compliance
 - [ ] Code review checklist complete (CLAUDE.md §15)
 
-**No more, no less.** Phase B2 done = deterministic diff engine ready.
+**No more, no less.** Phase B2 done = all 9 utilities + classify.ts + tests = deterministic diff engine ready for Phase B3.
 
 ---
 
@@ -338,10 +345,10 @@ describe("Phase B2 Integration — All 14 Rules", () => {
 7. (shared/diff.ts helpers) — Dedup key, sorting, constants
 8. classify.ts — Orchestrate all utilities into 14 rules
 
-### 🟡 Nice-to-Have (Do After Critical Path)
-- cacheUtils.ts — Cache-control keyword detection
-- validators.ts — Evidence key validation (helps with testing)
-- constants.ts — Centralize timing thresholds
+### 🔴 Critical Path (Continued — Order Matters)
+9. cacheUtils.ts — Cache-control directive parsing (Rule D1)
+10. validators.ts — Evidence key validation (deterministic testing)
+11. constants.ts — Centralized thresholds per Phase-B2.md
 
 ### Tests (In Parallel)
 - Unit tests for each utility (as you build them)
@@ -375,10 +382,12 @@ describe("Phase B2 Integration — All 14 Rules", () => {
 | Item | Status |
 |------|--------|
 | CF Context decision | ✅ RESOLVED (Soft Correlation) |
+| Utilities alignment | ✅ RESOLVED (All 9 = Must Have) |
 | Phase-B2.md (rulebook) | ✅ FINAL |
 | Design decisions (15 total) | ✅ DOCUMENTED |
 | Implementation roadmap | ✅ READY |
 | Code contracts (shared/) | ✅ LOCKED |
+| Summary alignment | ✅ UPDATED (matches Phase-B2.md) |
 | Directory structure | ⏳ TO CREATE |
 | Utilities (9 modules) | ⏳ TO IMPLEMENT |
 | classify.ts | ⏳ TO IMPLEMENT |
