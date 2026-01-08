@@ -269,3 +269,74 @@ export type DeterministicCompareArtifact = {
   right: SignalEnvelope;
   diff: EnvDiff;
 };
+
+/**
+ * Helper: Compute a deduplication key for a finding.
+ * Key: (code, first_evidence_section, sorted_evidence_keys)
+ */
+export function computeDedupKey(finding: DiffFinding): string {
+  const sortedKeys = finding.evidence
+    ?.flatMap((ev) => ev.keys ?? [])
+    .sort() ?? [];
+  return `${finding.code}:${finding.evidence?.[0]?.section}:${sortedKeys.join(
+    ","
+  )}`;
+}
+
+/**
+ * Helper: Deduplicate findings by (code, section, keys).
+ * Keeps first occurrence, discards duplicates.
+ */
+export function deduplicateFindings(findings: DiffFinding[]): DiffFinding[] {
+  const seen = new Map<string, DiffFinding>();
+
+  for (const finding of findings) {
+    const key = computeDedupKey(finding);
+    if (!seen.has(key)) {
+      seen.set(key, finding);
+    }
+  }
+
+  return Array.from(seen.values());
+}
+
+const SEVERITY_ORDER = { critical: 0, warn: 1, info: 2 } as const;
+
+/**
+ * Helper: Sort findings by (severity DESC, code ASC, message ASC).
+ * Deterministic ordering for consistent UI and snapshots.
+ *
+ * IMPORTANT: This function sorts the input array in-place using Array.sort().
+ * The returned array is the same reference as the input. If immutability is required,
+ * pass a copy instead (e.g., `sortFindings([...findings])`).
+ */
+export function sortFindings(findings: DiffFinding[]): DiffFinding[] {
+  return findings.sort((a, b) => {
+    const sevA = SEVERITY_ORDER[a.severity];
+    const sevB = SEVERITY_ORDER[b.severity];
+    if (sevA !== sevB) return sevA - sevB;
+
+    const codeComp = a.code.localeCompare(b.code);
+    if (codeComp !== 0) return codeComp;
+
+    return a.message.localeCompare(b.message);
+  });
+}
+
+/**
+ * Helper: Compute max severity from findings.
+ * critical > warn > info
+ */
+export function computeMaxSeverity(findings: DiffFinding[]): Severity {
+  if (findings.length === 0) return "info";
+
+  for (const finding of findings) {
+    if (finding.severity === "critical") return "critical";
+  }
+
+  for (const finding of findings) {
+    if (finding.severity === "warn") return "warn";
+  }
+
+  return "info";
+}
