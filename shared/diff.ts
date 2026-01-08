@@ -2,6 +2,9 @@
 
 import type { SignalEnvelope, RedirectHop } from "./signal";
 
+// Re-export for convenience
+export type { SignalEnvelope } from "./signal";
+
 /**
  * Increment only on breaking changes.
  */
