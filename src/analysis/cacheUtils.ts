@@ -80,24 +80,27 @@ export function hasCriticalCacheKeyword(directives: Set<string>): boolean {
 /**
  * Classify cache-control drift severity.
  *
- * Logic per Phase-B2.md §4.D1:
+ * Logic per Phase-B2.md §4.D1 with extended semantics:
  * - "critical" if critical keywords appear on only one side
  *   (one has no-store/private, other does not)
- * - "info" if critical keyword status matches (both have or both lack)
- *   (different non-critical directives do NOT cause drift)
- * - Undefined/missing treated as no critical keywords
+ * - "warn" if non-critical directives differ (caching policy changed)
+ *   (e.g., max-age=3600 vs max-age=7200, or public vs missing, etc.)
+ * - "info" if directive sets are identical
+ *
+ * Rationale: Non-critical directive changes signal policy shifts that LLM should investigate.
  *
  * Example scenarios:
  * - left: "no-store", right: "public" → critical (left has, right lacks)
  * - left: "public", right: "private" → critical (right has, left lacks)
- * - left: "no-store", right: "no-store" → info (both have)
- * - left: "public", right: "max-age=3600" → info (neither has)
- * - left: undefined, right: "no-store" → critical (right has, left lacks)
- * - left: undefined, right: undefined → info (neither has)
+ * - left: "no-store", right: "no-store" → info (both identical)
+ * - left: "public, max-age=3600", right: "public, max-age=7200" → warn (directive changed)
+ * - left: "public, max-age=3600", right: undefined → warn (policy removed)
+ * - left: undefined, right: "no-store" → critical (right has critical, left lacks)
+ * - left: undefined, right: undefined → info (both absent)
  *
  * @param left - Left cache-control header value (raw), or undefined
  * @param right - Right cache-control header value (raw), or undefined
- * @returns Severity: "critical" if critical keyword presence differs, "info" otherwise
+ * @returns Severity: "critical" (critical keyword differs), "warn" (other directive drift), or "info" (no drift)
  */
 export function classifyCacheControlDrift(
   left?: string,
@@ -116,6 +119,26 @@ export function classifyCacheControlDrift(
     return "critical";
   }
 
-  // Both sides have same critical keyword status → no drift
+  // If directive sets differ (but no critical keywords), it's a warning drift
+  if (!directivesSetsEqual(leftDirectives, rightDirectives)) {
+    return "warn";
+  }
+
+  // Both sides have identical directives → no drift
   return "info";
+}
+
+/**
+ * Check if two directive sets are equal (same directives, any order).
+ *
+ * @param left - Set of directive names (normalized, lowercase)
+ * @param right - Set of directive names (normalized, lowercase)
+ * @returns true if sets contain identical directives, false otherwise
+ */
+function directivesSetsEqual(left: Set<string>, right: Set<string>): boolean {
+  if (left.size !== right.size) return false;
+  for (const directive of left) {
+    if (!right.has(directive)) return false;
+  }
+  return true;
 }

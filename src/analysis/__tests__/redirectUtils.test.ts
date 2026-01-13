@@ -107,8 +107,8 @@ describe("redirectUtils", () => {
 
     it("should detect final host change with same hop count", () => {
       const result = classifyRedirectChainDrift(
-        ["url1", "url2"],
-        ["url1", "different-final"]
+        ["http://example.com", "http://final1.com"],
+        ["http://example.com", "http://final2.com"]
       );
       expect(result.severity).toBe("critical");
       expect(result.hopCountChanged).toBe(false);

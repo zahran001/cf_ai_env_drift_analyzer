@@ -121,13 +121,14 @@ describe("cacheUtils", () => {
       expect(classifyCacheControlDrift("no-store", "no-store")).toBe("info");
     });
 
-    it("Returns info when both sides have different critical keywords", () => {
-      // Both have a critical keyword, even if different ones
-      expect(classifyCacheControlDrift("no-store", "private")).toBe("info");
+    it("Returns warn when both sides have different critical keywords", () => {
+      // Both have a critical keyword (same critical status) but different directives → warn
+      expect(classifyCacheControlDrift("no-store", "private")).toBe("warn");
     });
 
-    it("Returns info when neither side has critical keyword", () => {
-      expect(classifyCacheControlDrift("public", "max-age=3600")).toBe("info");
+    it("Returns warn when neither side has critical keyword but directives differ", () => {
+      // Directives differ (public vs max-age) but no critical keywords → warn
+      expect(classifyCacheControlDrift("public", "max-age=3600")).toBe("warn");
     });
 
     it("Returns info when both sides are undefined", () => {
@@ -138,11 +139,11 @@ describe("cacheUtils", () => {
       expect(classifyCacheControlDrift("", "")).toBe("info");
     });
 
-    it("Returns info when different non-critical directives on both sides", () => {
+    it("Returns warn when different non-critical directives on both sides", () => {
       expect(classifyCacheControlDrift("public", "private")).toBe("critical");
-      // But "public" vs "max-age" should be info
+      // But "public" vs "max-age" differs → warn (no critical keywords involved)
       expect(classifyCacheControlDrift("public, max-age=3600", "max-age=7200")).toBe(
-        "info"
+        "warn"
       );
     });
 
@@ -157,9 +158,10 @@ describe("cacheUtils", () => {
       );
     });
 
-    it("Returns info when left has no-store and max-age, right has max-age with different value", () => {
+    it("Returns critical when left has no-store and max-age, right has max-age with different value", () => {
       // Left: no-store (critical) + max-age
-      // Right: max-age (no critical)
+      // Right: max-age (no critical keyword)
+      // Critical keyword presence differs → critical
       expect(classifyCacheControlDrift("no-store, max-age=3600", "max-age=7200")).toBe(
         "critical"
       );
@@ -175,6 +177,7 @@ describe("cacheUtils", () => {
 
   describe("Integration scenarios", () => {
     it("Realistic scenario: CDN cache control drifted from public to private", () => {
+      // Critical keyword added (private) → critical
       const leftCacheControl = "public, max-age=86400"; // CDN: cache publicly
       const rightCacheControl = "private, max-age=3600"; // Updated: private only
       expect(classifyCacheControlDrift(leftCacheControl, rightCacheControl)).toBe(
@@ -183,6 +186,8 @@ describe("cacheUtils", () => {
     });
 
     it("Realistic scenario: Cache TTL changed but critical status unchanged", () => {
+      // Both have same directives (public, max-age) even though values differ → info
+      // (parseCacheControl extracts directive names only, not values)
       const leftCacheControl = "public, max-age=3600";
       const rightCacheControl = "public, max-age=7200";
       expect(classifyCacheControlDrift(leftCacheControl, rightCacheControl)).toBe(
@@ -191,6 +196,7 @@ describe("cacheUtils", () => {
     });
 
     it("Realistic scenario: No-store added due to sensitive data", () => {
+      // Critical keyword added → critical
       const leftCacheControl = "max-age=3600";
       const rightCacheControl = "no-store";
       expect(classifyCacheControlDrift(leftCacheControl, rightCacheControl)).toBe(
@@ -199,11 +205,11 @@ describe("cacheUtils", () => {
     });
 
     it("Realistic scenario: Cache control removed entirely (but was non-critical)", () => {
-      // Removing non-critical directives is info (no-store or private not involved)
+      // Removing non-critical directives signals policy shift → warn
       const leftCacheControl = "public, max-age=86400";
       const rightCacheControl = undefined;
       expect(classifyCacheControlDrift(leftCacheControl, rightCacheControl)).toBe(
-        "info"
+        "warn"
       );
     });
 
@@ -217,10 +223,11 @@ describe("cacheUtils", () => {
     });
 
     it("Realistic scenario: Both responses explicitly allow caching", () => {
+      // Directives differ (immutable vs s-maxage) but both allow caching → warn (directive drift)
       const leftCacheControl = "public, immutable";
       const rightCacheControl = "public, s-maxage=31536000";
       expect(classifyCacheControlDrift(leftCacheControl, rightCacheControl)).toBe(
-        "info"
+        "warn"
       );
     });
   });
@@ -262,8 +269,8 @@ describe("cacheUtils", () => {
 
     it("Both sides with opposite critical keywords", () => {
       // Left: no-store, Right: private
-      // Both have critical keywords (even if different) → info
-      expect(classifyCacheControlDrift("no-store", "private")).toBe("info");
+      // Both have critical keywords (same critical status) but different directives → warn
+      expect(classifyCacheControlDrift("no-store", "private")).toBe("warn");
     });
   });
 });

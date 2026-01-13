@@ -9,10 +9,46 @@ export interface RedirectChainDiffResult {
 }
 
 /**
- * Classify redirect chain drift based on hop count and final host changes.
+ * Extract hostname from a URL string (case-insensitive).
+ *
+ * Uses the URL constructor to parse the URL and extract the hostname.
+ * Returns undefined if URL is invalid or missing.
+ *
+ * Examples:
+ * - "http://example.com" → "example.com"
+ * - "https://EXAMPLE.COM:8443" → "example.com" (port stripped, lowercase)
+ * - "http://final.com/path?query=1" → "final.com" (path/query stripped)
+ * - undefined → undefined
+ * - "invalid" → undefined
+ *
+ * @param url - URL string to parse
+ * @returns Hostname (lowercase), or undefined if invalid/missing
+ */
+function extractHostname(url?: string): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).hostname?.toLowerCase();
+  } catch {
+    // Invalid URL
+    return undefined;
+  }
+}
+
+/**
+ * Classify redirect chain drift based on hop count and final hostname changes.
  * Rule B3: Redirect Chain Changed → `REDIRECT_CHAIN_CHANGED`
+ *
+ * Per Phase-B2.md §4.B3:
  * - warn by default
- * - critical if hop count differs by ≥ 2 or final host differs
+ * - critical if hop count differs by ≥ 2 OR final hostname differs
+ *
+ * Note: Compares hostnames (not full URLs) to avoid false positives when only
+ * scheme or port differs. E.g., http://final.com and https://final.com have
+ * the same hostname (final.com) and should NOT trigger finalHostChanged.
+ *
+ * @param leftChain - Left redirect chain (array of full URLs)
+ * @param rightChain - Right redirect chain (array of full URLs)
+ * @returns RedirectChainDiffResult with severity classification
  */
 export function classifyRedirectChainDrift(
   leftChain: string[] = [],
@@ -23,23 +59,23 @@ export function classifyRedirectChainDrift(
   const hopCountDiff = Math.abs(leftHopCount - rightHopCount);
   const hopCountChanged = hopCountDiff > 0;
 
-  // Extract final host (last element if chain is not empty, else use undefined)
-  const leftFinalHost = leftChain.length > 0 ? leftChain[leftChain.length - 1] : undefined;
-  const rightFinalHost = rightChain.length > 0 ? rightChain[rightChain.length - 1] : undefined;
+  // Extract hostname from final URL (not full URL string comparison)
+  const leftFinalUrl = leftChain.length > 0 ? leftChain[leftChain.length - 1] : undefined;
+  const rightFinalUrl = rightChain.length > 0 ? rightChain[rightChain.length - 1] : undefined;
 
-  // Normalize to lowercase for comparison
-  const leftFinalHostNormalized = leftFinalHost?.toLowerCase();
-  const rightFinalHostNormalized = rightFinalHost?.toLowerCase();
-  const finalHostChanged = leftFinalHostNormalized !== rightFinalHostNormalized;
+  const leftFinalHostname = extractHostname(leftFinalUrl);
+  const rightFinalHostname = extractHostname(rightFinalUrl);
 
-  // Determine severity
+  const finalHostChanged = leftFinalHostname !== rightFinalHostname;
+
+  // Determine severity per Phase-B2.md §4.B3
   let severity: Severity = "info";
 
-  // critical if hop count differs by ≥ 2 OR final host differs
+  // critical if hop count differs by ≥ 2 OR final hostname differs
   if (hopCountDiff >= 2 || finalHostChanged) {
     severity = "critical";
   } else if (hopCountChanged) {
-    // hop count differs by 1 = warn
+    // hop count differs by exactly 1 = warn
     severity = "warn";
   }
 
