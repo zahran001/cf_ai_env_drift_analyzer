@@ -77,8 +77,9 @@ class DurationTracker {
 /**
  * Layer 1 + Layer 2 + Layer 3 SSRF validation
  * Critique A: Handles decimal, hex, octal IP representations + CIDR ranges
+ * Returns reason to distinguish between invalid_url (malformed) vs SSRF (blocked for security)
  */
-function validateUrlSafety(url: string): SSRFValidationResult {
+function validateUrlSafety(url: string): SSRFValidationResult & { isInvalidUrl?: boolean } {
   try {
     const parsed = new URL(url);
 
@@ -87,13 +88,14 @@ function validateUrlSafety(url: string): SSRFValidationResult {
       return {
         safe: false,
         reason: "invalid_scheme",
+        isInvalidUrl: true,
         details: { hostname: parsed.hostname },
       };
     }
 
     const hostname = parsed.hostname;
     if (!hostname) {
-      return { safe: false, reason: "no_hostname" };
+      return { safe: false, reason: "no_hostname", isInvalidUrl: true };
     }
 
     // ===== LAYER 2: Hostname Blocklist (Fast Fail) =====
@@ -164,6 +166,7 @@ function validateUrlSafety(url: string): SSRFValidationResult {
     return {
       safe: false,
       reason: "invalid_url",
+      isInvalidUrl: true,
       details: { hostname: "unknown" },
     };
   }
@@ -176,14 +179,14 @@ function validateUrlSafety(url: string): SSRFValidationResult {
 function extractRunnerContext(cfContext?: Record<string, any>): ProviderRunnerContext {
   if (!cfContext) {
     return {
-      colo: "UNKNOWN",
+      colo: "LOCAL",
       country: "XX",
       asn: undefined,
     };
   }
 
   return {
-    colo: cfContext.colo ?? "UNKNOWN",
+    colo: cfContext.colo ?? "LOCAL",
     country: cfContext.country ?? "XX",
     asn: cfContext.asn,
     asOrganization: cfContext.asOrganization,
@@ -398,6 +401,8 @@ export class ActiveProbeProvider implements ISignalProvider {
     // Validate SSRF before any network operations (Critique A)
     const validation = validateUrlSafety(url);
     if (!validation.safe) {
+      // Distinguish between invalid_url (malformed) and ssrf_blocked (security rejection)
+      const errorCode: ProbeErrorCode = validation.isInvalidUrl ? "invalid_url" : "ssrf_blocked";
       return {
         schemaVersion: SIGNAL_SCHEMA_VERSION,
         comparisonId: "unknown",
@@ -409,8 +414,8 @@ export class ActiveProbeProvider implements ISignalProvider {
         result: {
           ok: false,
           error: {
-            code: "ssrf_blocked" as ProbeErrorCode,
-            message: `SSRF validation failed: ${validation.reason}`,
+            code: errorCode,
+            message: `URL validation failed: ${validation.reason}`,
             details: validation.details,
           },
           durationMs: tracker.getElapsedMs(),

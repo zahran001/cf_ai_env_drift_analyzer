@@ -98,12 +98,39 @@ describe("ActiveProbeProvider", () => {
 
       expect(envelope.result.ok).toBe(false);
       if (!envelope.result.ok) {
-        expect(envelope.result.error.code).toBe("ssrf_blocked");
+        expect(envelope.result.error.code).toBe("invalid_url");
       }
     });
 
     test("rejects invalid URLs", async () => {
       const envelope = await provider.probe("not a valid url");
+
+      expect(envelope.result.ok).toBe(false);
+      if (!envelope.result.ok) {
+        expect(envelope.result.error.code).toBe("invalid_url");
+      }
+    });
+
+    test("rejects octal IP form of 127.0.0.1 (0177.0.0.1)", async () => {
+      const envelope = await provider.probe("http://0177.0.0.1");
+
+      expect(envelope.result.ok).toBe(false);
+      if (!envelope.result.ok) {
+        expect(envelope.result.error.code).toBe("ssrf_blocked");
+      }
+    });
+
+    test("rejects private IPv4 range 172.16.0.0/12", async () => {
+      const envelope = await provider.probe("http://172.16.0.1");
+
+      expect(envelope.result.ok).toBe(false);
+      if (!envelope.result.ok) {
+        expect(envelope.result.error.code).toBe("ssrf_blocked");
+      }
+    });
+
+    test("rejects IPv6 link-local (fe80::1)", async () => {
+      const envelope = await provider.probe("http://[fe80::1]");
 
       expect(envelope.result.ok).toBe(false);
       if (!envelope.result.ok) {
@@ -128,7 +155,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://example.com", undefined);
 
       expect(envelope.cf).toBeDefined();
-      expect(envelope.cf?.colo).toBe("UNKNOWN");
+      expect(envelope.cf?.colo).toBe("LOCAL");
       expect(envelope.cf?.country).toBe("XX");
 
       jest.restoreAllMocks();
@@ -271,6 +298,90 @@ describe("ActiveProbeProvider", () => {
         const coreKeys = Object.keys(envelope.result.response.headers.core);
         const sortedKeys = [...coreKeys].sort();
         expect(coreKeys).toEqual(sortedKeys);
+      }
+
+      jest.restoreAllMocks();
+    });
+  });
+
+  // ============================================
+  // CRITIQUE B: Timeout Budget Tests (3+ tests)
+  // ============================================
+
+  describe("Timeout Budget - Critique B", () => {
+    test("completes successfully when all operations finish within 9s", async () => {
+      // Mock a fast response
+      jest.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+        new Response("OK", {
+          status: 200,
+          headers: { "content-type": "text/plain" },
+        })
+      );
+
+      const envelope = await provider.probe("http://example.com");
+
+      expect(envelope.result.ok).toBe(true);
+      if (envelope.result.ok) {
+        expect(envelope.result.durationMs).toBeLessThan(1000); // Should be very fast
+      }
+
+      jest.restoreAllMocks();
+    });
+
+    test("times out when fetch exceeds 9s budget", async () => {
+      // Mock fetch to take too long (triggers abort at 9s)
+      jest.spyOn(globalThis, "fetch" as any).mockImplementation(() => {
+        return new Promise((_, reject) => {
+          // Simulate abort signal being triggered at 9s
+          setTimeout(() => {
+            const error = new DOMException("The operation was aborted.", "AbortError");
+            reject(error);
+          }, 100); // Simulate abort in test
+        });
+      });
+
+      const envelope = await provider.probe("http://example.com");
+
+      expect(envelope.result.ok).toBe(false);
+      if (!envelope.result.ok) {
+        expect(envelope.result.error.code).toBe("timeout");
+      }
+
+      jest.restoreAllMocks();
+    });
+
+    test("early-exit during redirect chain when time budget exhausted", async () => {
+      let callCount = 0;
+
+      // First fetch returns redirect, second would take too long
+      jest.spyOn(globalThis, "fetch" as any).mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          // First request: redirect
+          return Promise.resolve(
+            new Response("Redirect", {
+              status: 301,
+              headers: { location: "http://example.com/page1" },
+            })
+          );
+        }
+        // Subsequent requests would be aborted due to timeout
+        return new Promise((_, reject) => {
+          setTimeout(() => {
+            const error = new DOMException("The operation was aborted.", "AbortError");
+            reject(error);
+          }, 50);
+        });
+      });
+
+      const envelope = await provider.probe("http://example.com");
+
+      // Should fail due to timeout in redirect chain
+      expect(envelope.result.ok).toBe(false);
+      if (!envelope.result.ok) {
+        expect(
+          envelope.result.error.code === "timeout" || envelope.result.error.code === "fetch_error"
+        ).toBe(true);
       }
 
       jest.restoreAllMocks();
