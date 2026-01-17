@@ -7,15 +7,10 @@ compatibility_date = "2025-01-01"
 port = 8787
 
 # Durable Objects binding for environment pair storage
-[durable_objects]
-bindings = [
-  {
-    name = "ENVPAIR_DO",
-    class_name = "EnvPairDO",
-    script_name = "cf_ai_env_drift_analyzer",
-    rpc = true
-  }
-]
+[[durable_objects.bindings]]
+name = "ENVPAIR_DO"
+class_name = "EnvPairDO"
+script_name = "cf_ai_env_drift_analyzer"
 
 # Schema migration for Durable Object SQLite
 [[migrations]]
