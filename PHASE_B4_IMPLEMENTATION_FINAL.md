@@ -153,7 +153,6 @@ Create/Update file: `src/storage/envPairDO.ts`
 
 ```typescript
 import type { SignalEnvelope } from "../shared/types";
-import type { Database } from "@cloudflare/workers-types";
 
 /**
  * Durable Object for storing environment pair comparisons.
@@ -168,6 +167,9 @@ import type { Database } from "@cloudflare/workers-types";
  * - saveResult/failComparison: UPDATE operations (idempotent)
  *
  * RPC: Enabled in wrangler.toml; allows direct method calls from Workflow
+ *
+ * NOTE: pairKey is available via state.id.name but is not stored as a property
+ * because it's not needed internally; all methods operate on comparisonId.
  */
 
 interface ComparisonState {
@@ -177,8 +179,7 @@ interface ComparisonState {
 }
 
 export class EnvPairDO {
-  private pairKey: string;
-  private db: Database;
+  private db: any; // state.storage.sql type
   private readonly RING_BUFFER_SIZE = 50;
 
   /**
@@ -187,7 +188,6 @@ export class EnvPairDO {
    * ✅ Database accessed via state.storage.sql (DO-local SQLite).
    */
   constructor(state: DurableObjectState) {
-    this.pairKey = state.id.name;
     this.db = state.storage.sql;
   }
 
