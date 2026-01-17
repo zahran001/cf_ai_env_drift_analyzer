@@ -1,7 +1,9 @@
 import { activeProbeProvider } from "../providers/activeProbe";
 import type { ProviderRunnerContext } from "../providers/types";
+import type { Env } from "../env";
 
-export async function router(request: Request): Promise<Response> {
+export async function router(request: Request, env: Env): Promise<Response> {
+  void env; // Will be used by route handlers in Step 7+
   const url = new URL(request.url);
 
   if (request.method === "GET" && url.pathname === "/api/health") {
