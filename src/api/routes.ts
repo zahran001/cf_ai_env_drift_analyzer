@@ -2,6 +2,7 @@ import { activeProbeProvider } from "../providers/activeProbe";
 import type { ProviderRunnerContext } from "../providers/types";
 import type { Env } from "../env";
 import { computePairKeySHA256 } from "../utils/pairKey";
+import { validateProbeUrl } from "./validate";
 
 export async function router(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -86,8 +87,22 @@ async function handlePostCompare(request: Request, env: Env): Promise<Response> 
       );
     }
 
-    // TODO: Add URL validation (SSRF, scheme, format)
-    // See CLAUDE.md section 5.2 for validation rules
+    // Validate URLs (SSRF protection)
+    const leftValidation = validateProbeUrl(leftUrl);
+    if (!leftValidation.valid) {
+      return Response.json(
+        { error: `Invalid leftUrl: ${leftValidation.reason}` },
+        { status: 400 }
+      );
+    }
+
+    const rightValidation = validateProbeUrl(rightUrl);
+    if (!rightValidation.valid) {
+      return Response.json(
+        { error: `Invalid rightUrl: ${rightValidation.reason}` },
+        { status: 400 }
+      );
+    }
 
     // Compute pairKey using SHA-256
     const pairKey = await computePairKeySHA256(leftUrl, rightUrl);
