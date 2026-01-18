@@ -12,7 +12,9 @@ name = "ENVPAIR_DO"
 class_name = "EnvPairDO"
 script_name = "cf_ai_env_drift_analyzer"
 
-# Schema migration for Durable Object SQLite
+# Durable Object class versioning (NOT SQL schema migration)
+# Required for Cloudflare to track DO class changes across deployments
+# SQL schema is initialized lazily in src/storage/envPairDO.ts:initializeSchema()
 [[migrations]]
 tag = "v1"
 new_classes = ["EnvPairDO"]

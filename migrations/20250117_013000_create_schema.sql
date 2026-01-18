@@ -1,5 +1,27 @@
 -- Migration v1: Initial schema for EnvPairDO (2025-01-17 01:30:00)
 -- ===================================================================
+--
+-- IMPORTANT: This file is DOCUMENTATION ONLY for DO-local SQLite
+--
+-- ACTUAL SCHEMA LOCATION: src/storage/envPairDO.ts:initializeSchema()
+--
+-- WHY:
+-- - This project uses DO-LOCAL SQLITE (not D1)
+-- - Each Durable Object instance has its own isolated SQLite database
+-- - Schema is lazily initialized on first operation via CREATE TABLE IF NOT EXISTS
+-- - Wrangler migrations only apply to D1 (external database service)
+-- - wrangler.toml [[migrations]] section is for DO CLASS VERSIONING, not SQL
+--
+-- WHEN TO USE THIS FILE:
+-- 1. Reference: Understanding the schema structure
+-- 2. Upgrade: If migrating to D1 in Phase 2+, copy these statements to D1 migrations
+-- 3. Review: For documentation purposes
+--
+-- DO NOT TRY:
+-- - npx wrangler migrations apply --local (it won't work, this isn't D1)
+-- - Modifying this file to update schema (modify src/storage/envPairDO.ts instead)
+--
+-- ===================================================================
 -- Stores comparison metadata and probe data.
 -- Ring buffer retention keeps last 50 comparisons per DO instance.
 
