@@ -24,4 +24,5 @@ binding = "AI"
 # Workflows binding for comparison orchestration
 [[workflows]]
 name = "COMPARE_WORKFLOW"
-path = "src/workflows/compareEnvironments.ts"
+binding = "COMPARE_WORKFLOW"
+class_name = "CompareEnvironments"

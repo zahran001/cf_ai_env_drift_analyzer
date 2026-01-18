@@ -48,23 +48,28 @@ export interface CompareEnvironmentsInput {
 }
 
 /**
- * Main workflow entrypoint.
+ * Workflow class for environment comparison.
  *
+ * Cloudflare Workflows requires a class with a `run` method.
  * Called via: env.COMPARE_WORKFLOW.create({ id, params: input })
- *
- * Cloudflare Workflows automatically provides the `step` context to the workflow function.
- * The step parameter type is inferred from the Workflow binding.
- *
- * @param step - Workflow step context (for step.do, step.sleep, etc.)
- * @param input - Stable inputs (comparisonId, leftUrl, rightUrl, pairKey)
- * @param env - Worker environment with bindings
- * @returns Workflow completion result
  */
-export async function compareEnvironments(
-  step: any, // Cloudflare Workflow step context (type injected at runtime)
-  input: CompareEnvironmentsInput,
-  env: Env
-): Promise<{ comparisonId: string; status: string }> {
+export class CompareEnvironments {
+  /**
+   * Main workflow entrypoint.
+   *
+   * Cloudflare Workflows automatically provides the `step` context to the workflow function.
+   * The step parameter type is inferred from the Workflow binding.
+   *
+   * @param step - Workflow step context (for step.do, step.sleep, etc.)
+   * @param input - Stable inputs (comparisonId, leftUrl, rightUrl, pairKey)
+   * @param env - Worker environment with bindings
+   * @returns Workflow completion result
+   */
+  async run(
+    step: any, // Cloudflare Workflow step context (type injected at runtime)
+    input: CompareEnvironmentsInput,
+    env: Env
+  ): Promise<{ comparisonId: string; status: string }> {
   const { comparisonId, leftUrl, rightUrl, pairKey, runnerContext } = input;
 
   try {
@@ -251,5 +256,6 @@ export async function compareEnvironments(
 
     // Re-throw to mark workflow as failed
     throw new Error(`Comparison failed: ${errorMessage}`);
+  }
   }
 }

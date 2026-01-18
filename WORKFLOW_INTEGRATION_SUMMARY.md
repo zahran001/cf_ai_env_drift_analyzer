@@ -338,12 +338,11 @@ GET /api/compare/:comparisonId
 # Install dependencies
 npm install
 
-# Apply migrations
-npx wrangler migrations apply --local
-
-# Start wrangler dev
+# Start wrangler dev (schema auto-initializes on first DO operation)
 wrangler dev
 ```
+
+**Note:** Schema is lazily initialized in the DO constructor on first method call. No manual migration steps required—`CREATE TABLE IF NOT EXISTS` ensures idempotency across DO restarts.
 
 ### Unit Tests
 - [ ] computeDiff: same inputs → identical output (deterministic)

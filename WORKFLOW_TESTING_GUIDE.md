@@ -10,12 +10,11 @@
 # Ensure dependencies are installed
 npm install
 
-# Apply database migrations
-npx wrangler migrations apply --local
-
-# Verify environment is clean
-rm -rf .wrangler/  # Clear any stale state
+# Verify environment is clean (optional)
+rm -rf .wrangler/  # Clear any stale state (if testing fresh)
 ```
+
+**Note:** Schema is lazily initialized by the DO on first operation. No manual migration steps required.
 
 ---
 
@@ -124,6 +123,8 @@ curl http://localhost:8787/api/compare/{comparisonId}
 ## Test 4: Idempotency Verification
 
 **Goal:** Verify workflow steps are idempotent (no duplicates on retry)
+
+**Architecture Note:** Each unique URL pair (pairKey) has its own DO instance with isolated SQLite storage. This test verifies that workflow retries don't create duplicate records.
 
 ### Steps
 
@@ -425,6 +426,13 @@ curl http://localhost:8787/api/compare/{completedComparisonId}
 
 ## Troubleshooting
 
+### First request is slow or schema errors
+- **Expected:** First request to a new pairKey initializes schema (~50-100ms)
+- **Why:** `CREATE TABLE IF NOT EXISTS` runs once per DO instance
+- **Cached after:** Subsequent requests to same pairKey skip initialization
+- **Check logs:** Look for `[EnvPairDO] Schema initialization` messages
+- **If error:** Verify SQLite is available in Workers (it is)
+
 ### Workflow not starting
 - Check: `npm run build` (compilation errors?)
 - Check: wrangler.toml has `[[workflows]]` section
@@ -460,13 +468,23 @@ Expected timings:
 | Step | Duration | Notes |
 |------|----------|-------|
 | POST /api/compare | <100ms | Validation + pairKey + UUID gen |
+| **DO Schema Init** | **50-100ms** | **First request per pairKey only, then cached** |
 | Probe (single URL) | 1-10s | Network + redirects |
 | Save probe to DO | <100ms | Local SQLite write |
 | Compute diff | <50ms | Pure function |
 | Load history | <100ms | DO read |
 | Call LLM | 2-5s | Workers AI latency |
 | Save result | <100ms | DO write |
-| **Total** | **5-25s** | Depends on network latency |
+| **Total (new pair)** | **5-30s** | Includes schema init, depends on network latency |
+| **Total (cached pair)** | **5-25s** | No schema init overhead |
+
+### Schema Initialization Details
+
+- **When:** First request to a unique URL pair (pairKey)
+- **Cost:** ~50-100ms to create tables and indexes
+- **Mechanism:** `CREATE TABLE IF NOT EXISTS` in DO constructor
+- **Caching:** Flag (`schemaInitialized`) prevents re-init on same DO instance
+- **Per-instance:** Each unique pairKey gets its own DO instance with one-time init
 
 ---
 

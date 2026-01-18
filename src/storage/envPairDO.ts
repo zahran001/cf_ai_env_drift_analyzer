@@ -24,14 +24,112 @@ export interface ComparisonState {
 export class EnvPairDO {
   private db: any; // state.storage.sql type
   private readonly RING_BUFFER_SIZE = 50;
+  private schemaInitialized = false;
 
   /**
    * Constructor receives DurableObjectState only.
    * ✅ DO does NOT receive env parameter.
    * ✅ Database accessed via state.storage.sql (DO-local SQLite).
+   * ✅ Schema is lazily initialized on first method call.
    */
   constructor(state: DurableObjectState) {
     this.db = state.storage.sql;
+  }
+
+  /**
+   * Initialize schema (lazy initialization).
+   * Called once before first operation.
+   * Uses CREATE TABLE IF NOT EXISTS to be idempotent across DO restarts.
+   *
+   * Schema: comparisons + probes tables with indexes
+   *
+   * DESIGN DECISION (2026-01-18):
+   * =============================
+   * Schema is embedded here (not in migrations/) because:
+   *
+   * 1. DO-LOCAL SQLITE (not D1):
+   *    - Each DO instance has its own isolated SQLite database (state.storage.sql)
+   *    - DO-local storage is per-instance, not shared across instances
+   *    - Wrangler migrations only apply to D1 (external database service)
+   *    - DO-local SQLite has no migration command (this was causing the error)
+   *
+   * 2. ARCHITECTURE CHOICE (per CLAUDE.md 2.3):
+   *    - One DO instance per environment pair (pairKey)
+   *    - Each pair has its own isolated schema
+   *    - No shared database across pairs
+   *
+   * 3. LAZY INITIALIZATION:
+   *    - Schema created on first DO operation, not on startup
+   *    - Flag (schemaInitialized) prevents re-initialization
+   *    - CREATE TABLE IF NOT EXISTS ensures idempotency on DO restart
+   *    - Negligible cost: ~50-100ms per new pairKey, then cached
+   *
+   * 4. WHEN TO CHANGE:
+   *    - If switching to D1: move schema to migrations/ and use wrangler commands
+   *    - If migrating existing data: add version check (PRAGMA user_version)
+   *    - For now: MVP uses DO-local SQLite with this approach
+   *
+   * REFERENCE: migrations/20250117_013000_create_schema.sql (documentation only)
+   */
+  private async initializeSchema(): Promise<void> {
+    if (this.schemaInitialized) {
+      return;
+    }
+
+    try {
+      // Enable foreign keys for this connection
+      await this.db.exec("PRAGMA foreign_keys = ON");
+
+      // Create comparisons table
+      await this.db.exec(`
+        CREATE TABLE IF NOT EXISTS comparisons (
+          id TEXT PRIMARY KEY,
+          ts INTEGER NOT NULL,
+          left_url TEXT NOT NULL,
+          right_url TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'running',
+          result_json TEXT,
+          error TEXT,
+          CONSTRAINT status_check CHECK (status IN ('running', 'completed', 'failed'))
+        )
+      `);
+
+      // Create indexes for comparisons
+      await this.db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_comparisons_ts ON comparisons(ts DESC)
+      `);
+      await this.db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_comparisons_status ON comparisons(status)
+      `);
+
+      // Create probes table
+      await this.db.exec(`
+        CREATE TABLE IF NOT EXISTS probes (
+          id TEXT PRIMARY KEY,
+          comparison_id TEXT NOT NULL,
+          ts INTEGER NOT NULL,
+          side TEXT NOT NULL,
+          url TEXT NOT NULL,
+          envelope_json TEXT NOT NULL,
+          CONSTRAINT side_check CHECK (side IN ('left', 'right')),
+          CONSTRAINT unique_probe_side UNIQUE(comparison_id, side),
+          FOREIGN KEY(comparison_id) REFERENCES comparisons(id) ON DELETE CASCADE
+        )
+      `);
+
+      // Create indexes for probes
+      await this.db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_probes_comparison_id ON probes(comparison_id)
+      `);
+      await this.db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_probes_side ON probes(side)
+      `);
+
+      this.schemaInitialized = true;
+    } catch (err) {
+      console.error(`[EnvPairDO] Schema initialization failed: ${err}`);
+      throw new Error(`Failed to initialize DO schema: ${err}`);
+    }
   }
 
   /**
@@ -49,6 +147,7 @@ export class EnvPairDO {
     leftUrl: string,
     rightUrl: string
   ): Promise<{ comparisonId: string; status: "running" }> {
+    await this.initializeSchema();
     const now = Date.now();
 
     // ✅ CORRECT: Use state.storage.sql API
@@ -80,6 +179,7 @@ export class EnvPairDO {
     side: "left" | "right",
     envelope: SignalEnvelope
   ): Promise<void> {
+    await this.initializeSchema();
     const probeId = `${comparisonId}:${side}`;
     const now = Date.now();
     // Extract finalUrl from successful result or use requestedUrl as fallback
@@ -107,6 +207,7 @@ export class EnvPairDO {
    * - Retry call: UPDATE again (idempotent, no-op if unchanged)
    */
   async saveResult(comparisonId: string, resultJson: unknown): Promise<void> {
+    await this.initializeSchema();
     const resultStr = JSON.stringify(resultJson);
 
     await this.db
@@ -128,6 +229,7 @@ export class EnvPairDO {
    * - Retry call: UPDATE again (last error wins)
    */
   async failComparison(comparisonId: string, error: string): Promise<void> {
+    await this.initializeSchema();
     await this.db
       .prepare(
         `UPDATE comparisons
@@ -146,6 +248,7 @@ export class EnvPairDO {
    * ✅ Returns terminal state (completed/failed) or running.
    */
   async getComparison(comparisonId: string): Promise<ComparisonState | null> {
+    await this.initializeSchema();
     const row = (await this.db
       .prepare(
         `SELECT status, result_json, error
@@ -180,6 +283,7 @@ export class EnvPairDO {
    * Used to provide context to LLM for current comparison explanation.
    */
   async getComparisonsForHistory(limit: number = 10): Promise<ComparisonState[]> {
+    await this.initializeSchema();
     const rows = (await this.db
       .prepare(
         `SELECT status, result_json, error
