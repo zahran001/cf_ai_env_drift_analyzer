@@ -992,14 +992,33 @@ if (!state) {
 
 ---
 
+## Future Enhancements (Phase B5+)
+
+### LLM Prompt Input Optimization
+Instead of character-based truncation of findings and history, limit by **count** for cleaner truncation:
+- Cap findings at 10 items instead of 1500 characters
+- If more findings exist, include a count message: `"... and N more findings (truncated)"`
+- Benefits: More predictable input size, no mid-line truncation, better LLM handling
+
+**Implementation:** Update `src/llm/explain.ts` `buildPrompt()` to use:
+```typescript
+const MAX_FINDINGS = 10;
+const MAX_HISTORY_ITEMS = 3;
+
+let findingsSummary = diff.findings.slice(0, MAX_FINDINGS)
+  .map((f) => `- [${f.severity.toUpperCase()}] ${f.code}: ${f.message}`)
+  .join("\n");
+if (diff.findings.length > MAX_FINDINGS) {
+  findingsSummary += `\n... and ${diff.findings.length - MAX_FINDINGS} more findings`;
+}
+```
+
+---
+
 ## References
 
 - **CLAUDE.md 2.3:** Durable Objects (SQLite-Backed State)
 - **CLAUDE.md 4.4:** Worker → Durable Object (Poll)
-- **Cloudflare Docs:**
-  - [DO Persistent Storage](https://developers.cloudflare.com/durable-objects/platform/storage-api/)
-  - [DO RPC API](https://developers.cloudflare.com/durable-objects/examples/rpc-api/)
-  - [Workers SQLite](https://developers.cloudflare.com/workers/platform/storage/sql-storage/)
 
 ---
 

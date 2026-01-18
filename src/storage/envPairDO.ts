@@ -15,7 +15,7 @@ import type { SignalEnvelope } from "@shared/signal";
  * RPC: Enabled in wrangler.toml; allows direct method calls from Workflow
  */
 
-interface ComparisonState {
+export interface ComparisonState {
   status: "running" | "completed" | "failed";
   result?: unknown;
   error?: string;

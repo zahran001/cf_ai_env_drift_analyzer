@@ -20,3 +20,8 @@ new_classes = ["EnvPairDO"]
 # Workers AI binding for LLM integration (Llama 3.3)
 [ai]
 binding = "AI"
+
+# Workflows binding for comparison orchestration
+[[workflows]]
+name = "COMPARE_WORKFLOW"
+path = "src/workflows/compareEnvironments.ts"

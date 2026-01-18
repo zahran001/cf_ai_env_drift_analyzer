@@ -1,6 +1,31 @@
 import type { Env } from "../env";
+import type { CfContextSnapshot } from "@shared/signal";
 import { computePairKeySHA256 } from "../utils/pairKey";
 import { validateProbeUrl } from "./validate";
+
+/**
+ * Extract runner context from Cloudflare request.cf object.
+ * Used to provide geographical/network context to probes for LLM awareness.
+ */
+function extractRunnerContext(request: Request): CfContextSnapshot {
+  const cf = (request as any).cf as Record<string, any> | undefined;
+
+  if (!cf) {
+    return {
+      colo: "LOCAL",
+      country: "XX",
+    };
+  }
+
+  return {
+    colo: cf.colo ?? "LOCAL",
+    country: cf.country ?? "XX",
+    asn: cf.asn ?? undefined,
+    asOrganization: cf.asOrganization ?? undefined,
+    tlsVersion: cf.tlsVersion ?? undefined,
+    httpProtocol: cf.httpProtocol ?? undefined,
+  };
+}
 
 export async function router(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -86,14 +111,24 @@ async function handlePostCompare(request: Request, env: Env): Promise<Response> 
     const uuid = crypto.randomUUID();
     const comparisonId = `${pairKey}:${uuid}`;
 
-    // TODO: Start Workflow
-    // const handle = await env.COMPARE_WORKFLOW.create({
-    //   id: comparisonId,
-    //   params: { comparisonId, leftUrl, rightUrl, pairKey },
-    // });
+    // Extract runner context for LLM awareness (geographical/network info)
+    const runnerContext = extractRunnerContext(request);
 
-    // Note: env is used by TODO Workflow initialization above
-    void env;
+    // Start Workflow with stable inputs
+    // Per CLAUDE.md 4.2: Worker validates input, computes pairKey,
+    // encodes pairKey in comparisonId, starts Workflow, returns immediately
+    await env.COMPARE_WORKFLOW.create({
+      id: comparisonId,
+      params: {
+        comparisonId,
+        leftUrl,
+        rightUrl,
+        pairKey,
+        runnerContext,
+      },
+    });
+
+    console.log(`[Worker] Started workflow ${comparisonId} for ${leftUrl} <-> ${rightUrl}`);
 
     return Response.json(
       { comparisonId },
