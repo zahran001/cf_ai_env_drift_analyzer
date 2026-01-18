@@ -1,6 +1,6 @@
 name = "cf_ai_env_drift_analyzer"
 main = "src/worker.ts"
-compatibility_date = "2025-01-01"
+compatibility_date = "2025-01-15"
 
 # Good default for local dev if your UI is on a different port.
 [dev]
@@ -16,3 +16,7 @@ script_name = "cf_ai_env_drift_analyzer"
 [[migrations]]
 tag = "v1"
 new_classes = ["EnvPairDO"]
+
+# Workers AI binding for LLM integration (Llama 3.3)
+[ai]
+binding = "AI"

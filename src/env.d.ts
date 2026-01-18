@@ -8,6 +8,6 @@ export interface Env {
   // Durable Objects binding with RPC enabled
   ENVPAIR_DO: DurableObjectNamespace<EnvPairDO>;
 
-  // Environment name (development, staging, production)
-  ENVIRONMENT: "development" | "staging" | "production";
+  // Workers AI binding for LLM integration (Llama 3.3)
+  AI: Ai;
 }

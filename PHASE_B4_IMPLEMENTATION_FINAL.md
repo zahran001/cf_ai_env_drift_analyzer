@@ -4,7 +4,6 @@
 
 **Addressed Issues:**
 - ✅ DO-local SQLite via `state.storage.sql` (not D1)
-- ✅ DO RPC enabled (`rpc = true` in wrangler.toml)
 - ✅ Ring buffer invoked in `createComparison()`
 - ✅ 404 response for missing comparisons
 - ✅ All type imports correct, no missing dependencies
@@ -61,8 +60,8 @@ export interface Env {
   // Durable Objects binding with RPC enabled
   ENVPAIR_DO: DurableObjectNamespace<EnvPairDO>;
 
-  // Environment name (development, production, etc.)
-  ENVIRONMENT: "production" | "development";
+  // Workers AI binding for LLM integration (Llama 3.3)
+  AI: Ai;
 }
 ```
 
@@ -125,17 +124,12 @@ compatibility_date = "2025-01-15"
 port = 8787
 
 # ============================================
-# CRITICAL: Durable Objects with RPC enabled
+# Durable Objects binding
 # ============================================
-[durable_objects]
-bindings = [
-  {
-    name = "ENVPAIR_DO",
-    class_name = "EnvPairDO",
-    script_name = "cf_ai_env_drift_analyzer",
-    rpc = true  # ← ENABLE RPC for direct method calls
-  }
-]
+[[durable_objects.bindings]]
+name = "ENVPAIR_DO"
+class_name = "EnvPairDO"
+script_name = "cf_ai_env_drift_analyzer"
 
 # ============================================
 # Migrations for DO-local SQLite
@@ -932,29 +926,6 @@ async createComparison(...) {
 
 ---
 
-### ❌ RPC Not Enabled
-```toml
-# WRONG: Missing rpc = true
-[durable_objects]
-bindings = [
-  { name = "ENVPAIR_DO", class_name = "EnvPairDO" }
-]
-```
-
-### ✅ RPC Enabled
-```toml
-# CORRECT: RPC enabled for direct method calls
-[durable_objects]
-bindings = [
-  {
-    name = "ENVPAIR_DO",
-    class_name = "EnvPairDO",
-    rpc = true  # ← ENABLED
-  }
-]
-```
-
----
 
 ### ❌ Silent Failure on Missing Record
 ```typescript
@@ -999,7 +970,7 @@ if (!state) {
    - ✅ Step 1: pairKey utility
    - ✅ Step 2: Env types
    - ✅ Step 3: Migration
-   - ✅ Step 4: wrangler.toml (with `rpc = true`)
+   - ✅ Step 4: wrangler.toml
    - ✅ Step 5: EnvPairDO class
    - ✅ Step 6–7: Worker + routes
    - ✅ Step 8: Workflow integration
