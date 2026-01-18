@@ -1,4 +1,4 @@
-import type { SignalEnvelope } from "../../shared/signal";
+import type { SignalEnvelope } from "@shared/signal";
 
 /**
  * Durable Object for storing environment pair comparisons.

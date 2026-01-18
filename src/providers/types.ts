@@ -1,4 +1,4 @@
-import type { SignalEnvelope, CfContextSnapshot } from "../../shared/signal";
+import type { SignalEnvelope, CfContextSnapshot } from "@shared/signal";
 
 /**
  * Runner context extracted from Cloudflare request.cf
