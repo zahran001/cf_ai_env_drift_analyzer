@@ -211,10 +211,14 @@ export class EnvPairDO {
    *
    * ALGORITHM:
    * 1. Find timestamp of Nth newest comparison (ORDER BY ts DESC LIMIT 1 OFFSET N-1)
-   * 2. Delete all comparisons older than that timestamp
-   * 3. CASCADE deletes associated probes
+   * 2. Find all comparison IDs older than that timestamp
+   * 3. Explicitly DELETE probes referencing those comparison IDs
+   * 4. DELETE comparisons older than that timestamp
    *
-   * EFFICIENCY: Single SQL query; no background tasks or alarms.
+   * IDEMPOTENCY: Explicit cascade (not relying on PRAGMA foreign_keys) ensures
+   * orphaned probes never exist, even if PRAGMA is lost on connection restart.
+   *
+   * EFFICIENCY: Two SQL queries; no background tasks or alarms.
    * QUOTA: Prevents DO storage from exceeding ~100MB limit.
    */
   private async retainLatestN(n: number): Promise<void> {
@@ -233,8 +237,32 @@ export class EnvPairDO {
       return;
     }
 
-    // Delete comparisons older than the Nth newest
-    // FOREIGN KEY constraint with ON DELETE CASCADE deletes associated probes
+    // Step 1: Find comparison IDs to delete
+    const oldComparisons = (await this.db
+      .prepare(
+        `SELECT id FROM comparisons WHERE ts < ?
+         ORDER BY ts ASC`
+      )
+      .bind(nthRow.ts)
+      .all()) as { results: Array<{ id: string }> };
+
+    if (oldComparisons.results.length === 0) {
+      return;
+    }
+
+    // Step 2: Explicitly delete all probes for old comparisons
+    // This ensures no orphaned probes remain even if PRAGMA foreign_keys is lost
+    const comparisonIds = oldComparisons.results.map((row) => row.id);
+    const placeholders = comparisonIds.map(() => "?").join(",");
+
+    await this.db
+      .prepare(`DELETE FROM probes WHERE comparison_id IN (${placeholders})`)
+      .bind(...comparisonIds)
+      .run();
+
+    // Step 3: Delete old comparisons
+    // At this point, all referencing probes are already gone,
+    // so CASCADE is not necessary but provides defense-in-depth
     await this.db
       .prepare(`DELETE FROM comparisons WHERE ts < ?`)
       .bind(nthRow.ts)

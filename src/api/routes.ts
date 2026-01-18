@@ -1,5 +1,3 @@
-import { activeProbeProvider } from "../providers/activeProbe";
-import type { ProviderRunnerContext } from "../providers/types";
 import type { Env } from "../env";
 import { computePairKeySHA256 } from "../utils/pairKey";
 import { validateProbeUrl } from "./validate";
@@ -23,40 +21,17 @@ export async function router(request: Request, env: Env): Promise<Response> {
     return handleGetCompareStatus(comparisonId, env);
   }
 
-  // Temporary test endpoint for active probe
-  // GET /api/probe?url=https://example.com
+  // DEPRECATED: /api/probe endpoint removed for security (SSRF vector)
+  // This was a temporary test endpoint that bypassed URL validation.
+  // Per CLAUDE.md section 9.1, all probing must go through Workflow with proper validation.
+  // Direct probe calls must never be exposed in production.
+  // See PHASE_B4_IMPLEMENTATION_FINAL.md for details.
+  /*
   if (request.method === "GET" && url.pathname === "/api/probe") {
     const targetUrl = url.searchParams.get("url");
-
-    if (!targetUrl) {
-      return Response.json(
-        { error: "Missing 'url' query parameter" },
-        { status: 400 }
-      );
-    }
-
-    try {
-      // Extract runner context from Cloudflare request context
-      const cfContext: ProviderRunnerContext = {
-        colo: (request as any).cf?.colo,
-        country: (request as any).cf?.country,
-        asn: (request as any).cf?.asn,
-      };
-
-      // Execute probe
-      const envelope = await activeProbeProvider.probe(targetUrl, cfContext);
-
-      return Response.json(envelope, {
-        status: envelope.result.ok ? 200 : 400,
-        headers: { "content-type": "application/json" },
-      });
-    } catch (err) {
-      return Response.json(
-        { error: `Probe execution failed: ${String(err)}` },
-        { status: 500 }
-      );
-    }
+    ...
   }
+  */
 
   return new Response("Not found", { status: 404 });
 }
