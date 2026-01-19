@@ -3,10 +3,8 @@
 
 import { router } from "./api/routes";
 import type { Env } from "./env";
-import { CompareEnvironments } from "./workflows/compareEnvironments";
-import { EnvPairDO } from "./storage/envPairDO";
-
-export { CompareEnvironments, EnvPairDO };
+export { CompareEnvironments } from "./workflows/compareEnvironments";
+export { EnvPairDO } from "./storage/envPairDO";
 
 export default {
   async fetch(
