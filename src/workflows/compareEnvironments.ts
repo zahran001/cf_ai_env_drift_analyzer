@@ -70,195 +70,199 @@ export class CompareEnvironments {
     input: CompareEnvironmentsInput,
     env: Env
   ): Promise<{ comparisonId: string; status: string }> {
-  console.log(`[Workflow::run] Workflow run() called with input:`, input);
-  const { comparisonId, leftUrl, rightUrl, pairKey, runnerContext } = input;
+    console.log(`[Workflow::run] 🚀 WORKFLOW STARTED`);
+    console.log(`[Workflow::run] Input received:`, JSON.stringify(input));
+    console.log(`[Workflow::run] Input keys:`, Object.keys(input));
 
-  try {
-    // ===== STEP 1: Validate Inputs (Local, No Network) =====
+    const { comparisonId, leftUrl, rightUrl, pairKey, runnerContext } = input;
+    console.log(`[Workflow::run] Destructured - comparisonId=${comparisonId}, pairKey=${pairKey}`);
 
-    console.log(`[Workflow] Validating inputs...`);
-    if (!comparisonId || !leftUrl || !rightUrl || !pairKey) {
-      throw new Error("Missing required parameters");
-    }
-
-    console.log(`[Workflow] All inputs valid`);
-    console.log(`[Workflow] Starting comparison ${comparisonId} for ${leftUrl} <-> ${rightUrl}`);
-
-    // ===== STEP 2: Create Comparison Record in DO =====
-
-    const createResult = await step.do("createComparison", async () => {
-      const doId = env.ENVPAIR_DO.idFromName(pairKey);
-      const stub = env.ENVPAIR_DO.get(doId);
-      // ✅ RPC-enabled: direct method call
-      return (stub as any).createComparison(comparisonId, leftUrl, rightUrl);
-    });
-
-    console.log(`[Workflow] Comparison ${comparisonId} created, status=${createResult.status}`);
-
-    // ===== STEP 3: Probe Left URL =====
-
-    let leftEnvelope: SignalEnvelope;
     try {
-      leftEnvelope = await step.do("probeLeft", async () => {
-        return activeProbeProvider.probe(leftUrl, runnerContext);
-      });
-    } catch (err) {
-      // Fail comparison on probe error
-      await step.do("failLeft", async () => {
-        const doId = env.ENVPAIR_DO.idFromName(pairKey);
-        const stub = env.ENVPAIR_DO.get(doId);
-        return (stub as any).failComparison(
-          comparisonId,
-          `Left probe failed: ${String(err)}`
-        );
-      });
-      throw err;
-    }
+      // ===== STEP 1: Validate Inputs (Local, No Network) =====
 
-    // ===== STEP 4: Save Left Probe =====
-    // ✅ IDEMPOTENT: probe ID = ${comparisonId}:left (same every time)
-
-    await step.do("saveLeftProbe", async () => {
-      const doId = env.ENVPAIR_DO.idFromName(pairKey);
-      const stub = env.ENVPAIR_DO.get(doId);
-      return (stub as any).saveProbe(comparisonId, "left", leftEnvelope);
-    });
-
-    // ===== STEP 5: Probe Right URL =====
-
-    let rightEnvelope: SignalEnvelope;
-    try {
-      rightEnvelope = await step.do("probeRight", async () => {
-        return activeProbeProvider.probe(rightUrl, runnerContext);
-      });
-    } catch (err) {
-      // Fail comparison on probe error
-      await step.do("failRight", async () => {
-        const doId = env.ENVPAIR_DO.idFromName(pairKey);
-        const stub = env.ENVPAIR_DO.get(doId);
-        return (stub as any).failComparison(
-          comparisonId,
-          `Right probe failed: ${String(err)}`
-        );
-      });
-      throw err;
-    }
-
-    // ===== STEP 6: Save Right Probe (idempotent) =====
-
-    await step.do("saveRightProbe", async () => {
-      const doId = env.ENVPAIR_DO.idFromName(pairKey);
-      const stub = env.ENVPAIR_DO.get(doId);
-      return (stub as any).saveProbe(comparisonId, "right", rightEnvelope);
-    });
-
-    // ===== STEP 7: Compute Diff (Deterministic, Local) =====
-
-    const diff = computeDiff(leftEnvelope, rightEnvelope);
-
-    console.log(
-      `[Workflow] Diff computed for ${comparisonId}: ${diff.findings.length} findings`
-    );
-
-    // ===== STEP 8: Load History (Optional, For LLM Context) =====
-
-    const history = await step
-      .do("loadHistory", async () => {
-        const doId = env.ENVPAIR_DO.idFromName(pairKey);
-        const stub = env.ENVPAIR_DO.get(doId);
-        return (stub as any).getComparisonsForHistory(5);
-      })
-      .catch(() => []);
-
-    // ===== STEP 9: Call LLM (Retry Loop, Max 3 Attempts) =====
-
-    let explanation: unknown;
-    let llmAttempts = 0;
-    const MAX_LLM_ATTEMPTS = 3;
-
-    while (llmAttempts < MAX_LLM_ATTEMPTS) {
-      try {
-        explanation = await step.do(
-          `explainDiff_attempt_${llmAttempts + 1}`,
-          async () => {
-            return explainDiff(diff, history, env.AI);
-          }
-        );
-        console.log(`[Workflow] LLM explanation generated for ${comparisonId}`);
-        break; // Success
-      } catch (err) {
-        llmAttempts++;
-        const errMsg = String(err);
-        console.warn(
-          `[Workflow] LLM attempt ${llmAttempts}/${MAX_LLM_ATTEMPTS} failed: ${errMsg}`
-        );
-
-        if (llmAttempts >= MAX_LLM_ATTEMPTS) {
-          // All retries exhausted
-          await step.do("failLLM", async () => {
-            const doId = env.ENVPAIR_DO.idFromName(pairKey);
-            const stub = env.ENVPAIR_DO.get(doId);
-            return (stub as any).failComparison(
-              comparisonId,
-              `LLM service unavailable after ${MAX_LLM_ATTEMPTS} attempts: ${errMsg}`
-            );
-          });
-          throw err;
-        }
-
-        // Exponential backoff: 2^attempt seconds (1s, 2s, 4s)
-        const backoffMs = Math.pow(2, llmAttempts) * 1000;
-        console.log(`[Workflow] Backing off ${backoffMs}ms before retry`);
-        await step.sleep(`backoff_${llmAttempts}`, backoffMs);
+      console.log(`[Workflow] Validating inputs...`);
+      if (!comparisonId || !leftUrl || !rightUrl || !pairKey) {
+        throw new Error("Missing required parameters");
       }
-    }
 
-    // ===== STEP 10: Validate LLM Output =====
-    // (Validation happens inside explainDiff, this is just a safety check)
+      console.log(`[Workflow] All inputs valid`);
+      console.log(`[Workflow] Starting comparison ${comparisonId} for ${leftUrl} <-> ${rightUrl}`);
 
-    if (!explanation) {
-      throw new Error("LLM explanation is null after retries");
-    }
+      // ===== STEP 2: Create Comparison Record in DO =====
 
-    // ===== STEP 11: Save Result =====
-
-    await step.do("saveResult", async () => {
-      const doId = env.ENVPAIR_DO.idFromName(pairKey);
-      const stub = env.ENVPAIR_DO.get(doId);
-      return (stub as any).saveResult(comparisonId, {
-        diff,
-        explanation,
-        timestamp: Date.now(),
-      });
-    });
-
-    console.log(`[Workflow] Comparison ${comparisonId} completed`);
-
-    return {
-      comparisonId,
-      status: "completed",
-    };
-  } catch (err) {
-    // ===== STEP 12: Error Handler (Any Step Failure) =====
-
-    const errorMessage = String(err);
-    console.error(
-      `[Workflow] Comparison ${comparisonId} failed: ${errorMessage}`
-    );
-
-    // Mark as failed in DO (if not already marked)
-    try {
-      await step.do("failWorkflow", async () => {
+      const createResult = await step.do("createComparison", async () => {
         const doId = env.ENVPAIR_DO.idFromName(pairKey);
         const stub = env.ENVPAIR_DO.get(doId);
-        return (stub as any).failComparison(comparisonId, errorMessage);
+        // ✅ RPC-enabled: direct method call
+        return (stub as any).createComparison(comparisonId, leftUrl, rightUrl);
       });
-    } catch (doErr) {
-      console.error(`[Workflow] Failed to mark comparison as failed: ${doErr}`);
-    }
 
-    // Re-throw to mark workflow as failed
-    throw new Error(`Comparison failed: ${errorMessage}`);
-  }
+      console.log(`[Workflow] Comparison ${comparisonId} created, status=${createResult.status}`);
+
+      // ===== STEP 3: Probe Left URL =====
+
+      let leftEnvelope: SignalEnvelope;
+      try {
+        leftEnvelope = await step.do("probeLeft", async () => {
+          return activeProbeProvider.probe(leftUrl, runnerContext);
+        });
+      } catch (err) {
+        // Fail comparison on probe error
+        await step.do("failLeft", async () => {
+          const doId = env.ENVPAIR_DO.idFromName(pairKey);
+          const stub = env.ENVPAIR_DO.get(doId);
+          return (stub as any).failComparison(
+            comparisonId,
+            `Left probe failed: ${String(err)}`
+          );
+        });
+        throw err;
+      }
+
+      // ===== STEP 4: Save Left Probe =====
+      // ✅ IDEMPOTENT: probe ID = ${comparisonId}:left (same every time)
+
+      await step.do("saveLeftProbe", async () => {
+        const doId = env.ENVPAIR_DO.idFromName(pairKey);
+        const stub = env.ENVPAIR_DO.get(doId);
+        return (stub as any).saveProbe(comparisonId, "left", leftEnvelope);
+      });
+
+      // ===== STEP 5: Probe Right URL =====
+
+      let rightEnvelope: SignalEnvelope;
+      try {
+        rightEnvelope = await step.do("probeRight", async () => {
+          return activeProbeProvider.probe(rightUrl, runnerContext);
+        });
+      } catch (err) {
+        // Fail comparison on probe error
+        await step.do("failRight", async () => {
+          const doId = env.ENVPAIR_DO.idFromName(pairKey);
+          const stub = env.ENVPAIR_DO.get(doId);
+          return (stub as any).failComparison(
+            comparisonId,
+            `Right probe failed: ${String(err)}`
+          );
+        });
+        throw err;
+      }
+
+      // ===== STEP 6: Save Right Probe (idempotent) =====
+
+      await step.do("saveRightProbe", async () => {
+        const doId = env.ENVPAIR_DO.idFromName(pairKey);
+        const stub = env.ENVPAIR_DO.get(doId);
+        return (stub as any).saveProbe(comparisonId, "right", rightEnvelope);
+      });
+
+      // ===== STEP 7: Compute Diff (Deterministic, Local) =====
+
+      const diff = computeDiff(leftEnvelope, rightEnvelope);
+
+      console.log(
+        `[Workflow] Diff computed for ${comparisonId}: ${diff.findings.length} findings`
+      );
+
+      // ===== STEP 8: Load History (Optional, For LLM Context) =====
+
+      const history = await step
+        .do("loadHistory", async () => {
+          const doId = env.ENVPAIR_DO.idFromName(pairKey);
+          const stub = env.ENVPAIR_DO.get(doId);
+          return (stub as any).getComparisonsForHistory(5);
+        })
+        .catch(() => []);
+
+      // ===== STEP 9: Call LLM (Retry Loop, Max 3 Attempts) =====
+
+      let explanation: unknown;
+      let llmAttempts = 0;
+      const MAX_LLM_ATTEMPTS = 3;
+
+      while (llmAttempts < MAX_LLM_ATTEMPTS) {
+        try {
+          explanation = await step.do(
+            `explainDiff_attempt_${llmAttempts + 1}`,
+            async () => {
+              return explainDiff(diff, history, env.AI);
+            }
+          );
+          console.log(`[Workflow] LLM explanation generated for ${comparisonId}`);
+          break; // Success
+        } catch (err) {
+          llmAttempts++;
+          const errMsg = String(err);
+          console.warn(
+            `[Workflow] LLM attempt ${llmAttempts}/${MAX_LLM_ATTEMPTS} failed: ${errMsg}`
+          );
+
+          if (llmAttempts >= MAX_LLM_ATTEMPTS) {
+            // All retries exhausted
+            await step.do("failLLM", async () => {
+              const doId = env.ENVPAIR_DO.idFromName(pairKey);
+              const stub = env.ENVPAIR_DO.get(doId);
+              return (stub as any).failComparison(
+                comparisonId,
+                `LLM service unavailable after ${MAX_LLM_ATTEMPTS} attempts: ${errMsg}`
+              );
+            });
+            throw err;
+          }
+
+          // Exponential backoff: 2^attempt seconds (1s, 2s, 4s)
+          const backoffMs = Math.pow(2, llmAttempts) * 1000;
+          console.log(`[Workflow] Backing off ${backoffMs}ms before retry`);
+          await step.sleep(`backoff_${llmAttempts}`, backoffMs);
+        }
+      }
+
+      // ===== STEP 10: Validate LLM Output =====
+      // (Validation happens inside explainDiff, this is just a safety check)
+
+      if (!explanation) {
+        throw new Error("LLM explanation is null after retries");
+      }
+
+      // ===== STEP 11: Save Result =====
+
+      await step.do("saveResult", async () => {
+        const doId = env.ENVPAIR_DO.idFromName(pairKey);
+        const stub = env.ENVPAIR_DO.get(doId);
+        return (stub as any).saveResult(comparisonId, {
+          diff,
+          explanation,
+          timestamp: Date.now(),
+        });
+      });
+
+      console.log(`[Workflow] Comparison ${comparisonId} completed`);
+
+      return {
+        comparisonId,
+        status: "completed",
+      };
+    } catch (err) {
+      // ===== STEP 12: Error Handler (Any Step Failure) =====
+
+      const errorMessage = String(err);
+      console.error(
+        `[Workflow] Comparison ${comparisonId} failed: ${errorMessage}`
+      );
+
+      // Mark as failed in DO (if not already marked)
+      try {
+        await step.do("failWorkflow", async () => {
+          const doId = env.ENVPAIR_DO.idFromName(pairKey);
+          const stub = env.ENVPAIR_DO.get(doId);
+          return (stub as any).failComparison(comparisonId, errorMessage);
+        });
+      } catch (doErr) {
+        console.error(`[Workflow] Failed to mark comparison as failed: ${doErr}`);
+      }
+
+      // Re-throw to mark workflow as failed
+      throw new Error(`Comparison failed: ${errorMessage}`);
+    }
   }
 }
