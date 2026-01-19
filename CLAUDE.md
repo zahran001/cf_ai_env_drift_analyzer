@@ -347,8 +347,10 @@ CREATE TABLE probes (
 **Worker must:**
 - Validate input (scheme, format, IP ranges)
 - Compute `pairKey` from URLs
-- Encode `pairKey` in `comparisonId` as prefix: `${pairKey}:${uuid}`
-- Start Workflow with `{ comparisonId, leftUrl, rightUrl, pairKey }`
+- Encode `pairKeyPrefix` (first 40 chars of SHA-256) in `comparisonId` as prefix: `${pairKeyPrefix}-${uuid}`
+  - Workflow IDs limited to 100 chars; full SHA-256 would exceed this (64 + 1 + 36 = 101)
+  - 40-char prefix + 1 + 36 = 77 chars ✅
+- Start Workflow with `{ comparisonId, leftUrl, rightUrl, pairKey: pairKeyPrefix }`
 - Return immediately with `{ comparisonId }`
 
 **Worker must not:**
@@ -376,8 +378,8 @@ CREATE TABLE probes (
 ### 4.4 Worker → Durable Object (Poll)
 
 **Worker must:**
-- Extract `pairKey` from `comparisonId` prefix (before the `:` separator)
-- Obtain the Durable Object stub: `env.ENVPAIR_DO.idFromName(pairKey)` → fetch stub
+- Extract `pairKeyPrefix` from `comparisonId` prefix (40-char SHA-256 prefix before `-uuid`)
+- Obtain the Durable Object stub: `env.ENVPAIR_DO.idFromName(pairKeyPrefix)` → fetch stub
 - Call stub method: `stub.getComparison(comparisonId)` to fetch authoritative state
 - Return `{ status }` if running
 - Return `{ status, result }` if completed
@@ -385,14 +387,17 @@ CREATE TABLE probes (
 
 **Example (TypeScript):**
 ```typescript
-const pairKey = comparisonId.split(':')[0];
-const stub = env.ENVPAIR_DO.get(env.ENVPAIR_DO.idFromName(pairKey));
+// comparisonId format: ${pairKeyPrefix}-${uuid}
+// pairKeyPrefix is first 40 chars of SHA-256 hex, UUID is 36 chars, separated by hyphen
+// Total: 40 + 1 + 36 = 77 chars (under Workflow ID 100-char limit)
+const pairKeyPrefix = comparisonId.substring(0, comparisonId.length - 37);
+const stub = env.ENVPAIR_DO.get(env.ENVPAIR_DO.idFromName(pairKeyPrefix));
 const state = await stub.getComparison(comparisonId);
 return new Response(JSON.stringify(state), { status: 200 });
 ```
 
 **Invariants:**
-- Worker must use `idFromName(pairKey)` to compute stable DO id (not arbitrary UUIDs)
+- Worker must use `idFromName(pairKeyPrefix)` to compute stable DO id (not arbitrary UUIDs)
 - Worker must fetch a fresh stub on every request (never cache stub references)
 - DO state is the authoritative source; Worker has no local caching of comparison state
 

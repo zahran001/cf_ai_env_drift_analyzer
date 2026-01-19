@@ -76,11 +76,14 @@ export async function router(request: Request, env: Env): Promise<Response> {
  */
 async function handlePostCompare(request: Request, env: Env): Promise<Response> {
   try {
+    console.log(`[Worker] POST /api/compare received`);
     const body = (await request.json()) as { leftUrl?: string; rightUrl?: string };
     const { leftUrl, rightUrl } = body;
+    console.log(`[Worker] Parsed URLs: left="${leftUrl}", right="${rightUrl}"`);
 
     // Validate inputs
     if (!leftUrl || !rightUrl) {
+      console.log(`[Worker] ERROR: Missing leftUrl or rightUrl`);
       return Response.json(
         { error: "Missing leftUrl or rightUrl" },
         { status: 400 }
@@ -88,16 +91,20 @@ async function handlePostCompare(request: Request, env: Env): Promise<Response> 
     }
 
     // Validate URLs (SSRF protection)
+    console.log(`[Worker] Validating leftUrl...`);
     const leftValidation = validateProbeUrl(leftUrl);
     if (!leftValidation.valid) {
+      console.log(`[Worker] ERROR: Invalid leftUrl: ${leftValidation.reason}`);
       return Response.json(
         { error: `Invalid leftUrl: ${leftValidation.reason}` },
         { status: 400 }
       );
     }
 
+    console.log(`[Worker] Validating rightUrl...`);
     const rightValidation = validateProbeUrl(rightUrl);
     if (!rightValidation.valid) {
+      console.log(`[Worker] ERROR: Invalid rightUrl: ${rightValidation.reason}`);
       return Response.json(
         { error: `Invalid rightUrl: ${rightValidation.reason}` },
         { status: 400 }
@@ -105,28 +112,45 @@ async function handlePostCompare(request: Request, env: Env): Promise<Response> 
     }
 
     // Compute pairKey using SHA-256
+    console.log(`[Worker] Computing pairKey...`);
     const pairKey = await computePairKeySHA256(leftUrl, rightUrl);
+    console.log(`[Worker] pairKey computed: ${pairKey}`);
 
     // Generate stable comparisonId
+    // Format: ${pairKeyPrefix}-${uuid} where pairKeyPrefix is first 40 chars of SHA-256
+    // Cloudflare Workflows enforce: ID length ≤ 100 chars, regex: ^[a-zA-Z0-9_][a-zA-Z0-9-_]*$
+    // Calculation: 40 (pairKeyPrefix) + 1 (hyphen) + 36 (UUID) = 77 chars ✅ under 100 limit
+    // Full SHA-256 (64 chars) would exceed: 64 + 1 + 36 = 101 chars ✗
+    const pairKeyPrefix = pairKey.substring(0, 40);
     const uuid = crypto.randomUUID();
-    const comparisonId = `${pairKey}:${uuid}`;
+    const comparisonId = `${pairKeyPrefix}-${uuid}`;
+    console.log(`[Worker] pairKeyPrefix: ${pairKeyPrefix}`);
+    console.log(`[Worker] comparisonId generated: ${comparisonId}`);
 
     // Extract runner context for LLM awareness (geographical/network info)
     const runnerContext = extractRunnerContext(request);
+    console.log(`[Worker] runnerContext extracted: colo=${runnerContext.colo}, country=${runnerContext.country}`);
 
     // Start Workflow with stable inputs
     // Per CLAUDE.md 4.2: Worker validates input, computes pairKey,
     // encodes pairKey in comparisonId, starts Workflow, returns immediately
-    await env.COMPARE_WORKFLOW.create({
+    console.log(`[Worker] About to call env.COMPARE_WORKFLOW.create() with comparisonId=${comparisonId}`);
+    console.log(`[Worker] Workflow binding type:`, typeof env.COMPARE_WORKFLOW);
+    console.log(`[Worker] Workflow binding methods:`, Object.keys(env.COMPARE_WORKFLOW || {}).join(", "));
+
+    const workflowHandle = await env.COMPARE_WORKFLOW.create({
       id: comparisonId,
       params: {
         comparisonId,
         leftUrl,
         rightUrl,
-        pairKey,
+        pairKey: pairKeyPrefix, // Use prefix for DO routing (matches comparisonId format)
         runnerContext,
       },
     });
+
+    console.log(`[Worker] Workflow created successfully`);
+    console.log(`[Worker] Workflow handle:`, workflowHandle);
 
     console.log(`[Worker] Started workflow ${comparisonId} for ${leftUrl} <-> ${rightUrl}`);
 
@@ -135,6 +159,12 @@ async function handlePostCompare(request: Request, env: Env): Promise<Response> 
       { status: 202 } // Accepted; processing in background
     );
   } catch (err) {
+    console.error(`[Worker] CAUGHT ERROR:`, err);
+    console.error(`[Worker] Error type:`, typeof err);
+    console.error(`[Worker] Error message:`, String(err));
+    if (err instanceof Error) {
+      console.error(`[Worker] Error stack:`, err.stack);
+    }
     return Response.json(
       { error: `Failed to start comparison: ${String(err)}` },
       { status: 500 }
@@ -163,19 +193,22 @@ async function handleGetCompareStatus(
   env: Env
 ): Promise<Response> {
   try {
-    // Extract pairKey from comparisonId format: ${pairKey}:${uuid}
-    const pairKey = comparisonId.split(":")[0];
+    // Extract pairKeyPrefix from comparisonId format: ${pairKeyPrefix}-${uuid}
+    // Note: pairKeyPrefix is first 40 chars of SHA-256 hex, UUID is 36 chars
+    // Total format: 40 hex chars + hyphen + 36 UUID chars = 77 total
+    // So we extract everything except the last 37 characters (hyphen + UUID)
+    const pairKeyPrefix = comparisonId.substring(0, comparisonId.length - 37);
 
-    if (!pairKey) {
+    if (!pairKeyPrefix) {
       return Response.json(
         { error: "Invalid comparisonId format" },
         { status: 400 }
       );
     }
 
-    // Get stable DO instance for this pairKey
-    // idFromName ensures same DO is used for same URL pair
-    const doId = env.ENVPAIR_DO.idFromName(pairKey);
+    // Get stable DO instance for this pairKeyPrefix
+    // idFromName ensures same DO is used for same URL pair (via prefix)
+    const doId = env.ENVPAIR_DO.idFromName(pairKeyPrefix);
     const stub = env.ENVPAIR_DO.get(doId);
 
     // ✅ CORRECT: Call DO method via RPC (enabled in wrangler.toml)

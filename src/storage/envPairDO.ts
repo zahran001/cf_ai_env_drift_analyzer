@@ -1,4 +1,5 @@
 import type { SignalEnvelope } from "@shared/signal";
+import { DurableObject } from "cloudflare:workers";
 
 /**
  * Durable Object for storing environment pair comparisons.
@@ -12,7 +13,7 @@ import type { SignalEnvelope } from "@shared/signal";
  * - saveProbe: Uses INSERT OR REPLACE with deterministic ID
  * - saveResult/failComparison: UPDATE operations (idempotent)
  *
- * RPC: Enabled in wrangler.toml; allows direct method calls from Workflow
+ * RPC: Enabled in wrangler.toml via new_sqlite_classes; allows direct method calls from Workflow
  */
 
 export interface ComparisonState {
@@ -21,19 +22,29 @@ export interface ComparisonState {
   error?: string;
 }
 
-export class EnvPairDO {
-  private db: any; // state.storage.sql type
+export class EnvPairDO extends DurableObject {
   private readonly RING_BUFFER_SIZE = 50;
   private schemaInitialized = false;
 
   /**
-   * Constructor receives DurableObjectState only.
-   * ✅ DO does NOT receive env parameter.
-   * ✅ Database accessed via state.storage.sql (DO-local SQLite).
+   * Constructor receives DurableObjectState and env.
+   * ✅ MUST extend DurableObject for RPC support.
+   * ✅ Database accessed via this.ctx.storage.sql (DurableObject protected property).
    * ✅ Schema is lazily initialized on first method call.
+   *
+   * NOTE: With RPC, the constructor isn't called for remote method calls.
+   * We access this.ctx.storage.sql directly in methods.
    */
-  constructor(state: DurableObjectState) {
-    this.db = state.storage.sql;
+  constructor(state: DurableObjectState, env: any) {
+    super(state, env);
+  }
+
+  /**
+   * Get database instance.
+   * Called from every method since constructor isn't called for RPC requests.
+   */
+  private getDb(): any {
+    return this.ctx.storage.sql;
   }
 
   /**
@@ -78,10 +89,11 @@ export class EnvPairDO {
 
     try {
       // Enable foreign keys for this connection
-      await this.db.exec("PRAGMA foreign_keys = ON");
+      // ✅ DO SQLite .exec() is SYNCHRONOUS (no await needed)
+      this.getDb().exec("PRAGMA foreign_keys = ON");
 
       // Create comparisons table
-      await this.db.exec(`
+      this.getDb().exec(`
         CREATE TABLE IF NOT EXISTS comparisons (
           id TEXT PRIMARY KEY,
           ts INTEGER NOT NULL,
@@ -95,15 +107,15 @@ export class EnvPairDO {
       `);
 
       // Create indexes for comparisons
-      await this.db.exec(`
+      this.getDb().exec(`
         CREATE INDEX IF NOT EXISTS idx_comparisons_ts ON comparisons(ts DESC)
       `);
-      await this.db.exec(`
+      this.getDb().exec(`
         CREATE INDEX IF NOT EXISTS idx_comparisons_status ON comparisons(status)
       `);
 
       // Create probes table
-      await this.db.exec(`
+      this.getDb().exec(`
         CREATE TABLE IF NOT EXISTS probes (
           id TEXT PRIMARY KEY,
           comparison_id TEXT NOT NULL,
@@ -118,10 +130,10 @@ export class EnvPairDO {
       `);
 
       // Create indexes for probes
-      await this.db.exec(`
+      this.getDb().exec(`
         CREATE INDEX IF NOT EXISTS idx_probes_comparison_id ON probes(comparison_id)
       `);
-      await this.db.exec(`
+      this.getDb().exec(`
         CREATE INDEX IF NOT EXISTS idx_probes_side ON probes(side)
       `);
 
@@ -150,14 +162,15 @@ export class EnvPairDO {
     await this.initializeSchema();
     const now = Date.now();
 
-    // ✅ CORRECT: Use state.storage.sql API
-    await this.db
-      .prepare(
-        `INSERT OR REPLACE INTO comparisons (id, ts, left_url, right_url, status)
-         VALUES (?, ?, ?, ?, 'running')`
-      )
-      .bind(comparisonId, now, leftUrl, rightUrl)
-      .run();
+    // ✅ CORRECT: Use DO SQLite .exec() API (not D1 .prepare().bind().run())
+    this.getDb().exec(
+      `INSERT OR REPLACE INTO comparisons (id, ts, left_url, right_url, status)
+       VALUES (?, ?, ?, ?, 'running')`,
+      comparisonId,
+      now,
+      leftUrl,
+      rightUrl
+    );
 
     // ✅ CRITICAL: Ring buffer cleanup on every new comparison
     await this.retainLatestN(this.RING_BUFFER_SIZE);
@@ -189,13 +202,17 @@ export class EnvPairDO {
         : envelope.requestedUrl;
     const envelopeJson = JSON.stringify(envelope);
 
-    await this.db
-      .prepare(
-        `INSERT OR REPLACE INTO probes (id, comparison_id, ts, side, url, envelope_json)
-         VALUES (?, ?, ?, ?, ?, ?)`
-      )
-      .bind(probeId, comparisonId, now, side, finalUrl, envelopeJson)
-      .run();
+    // ✅ CORRECT: Use DO SQLite .exec() API (not D1 .prepare().bind().run())
+    this.getDb().exec(
+      `INSERT OR REPLACE INTO probes (id, comparison_id, ts, side, url, envelope_json)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      probeId,
+      comparisonId,
+      now,
+      side,
+      finalUrl,
+      envelopeJson
+    );
   }
 
   /**
@@ -210,14 +227,14 @@ export class EnvPairDO {
     await this.initializeSchema();
     const resultStr = JSON.stringify(resultJson);
 
-    await this.db
-      .prepare(
-        `UPDATE comparisons
-         SET status = 'completed', result_json = ?
-         WHERE id = ?`
-      )
-      .bind(resultStr, comparisonId)
-      .run();
+    // ✅ CORRECT: Use DO SQLite .exec() API (not D1 .prepare().bind().run())
+    this.getDb().exec(
+      `UPDATE comparisons
+       SET status = 'completed', result_json = ?
+       WHERE id = ?`,
+      resultStr,
+      comparisonId
+    );
   }
 
   /**
@@ -230,14 +247,15 @@ export class EnvPairDO {
    */
   async failComparison(comparisonId: string, error: string): Promise<void> {
     await this.initializeSchema();
-    await this.db
-      .prepare(
-        `UPDATE comparisons
-         SET status = 'failed', error = ?
-         WHERE id = ?`
-      )
-      .bind(error, comparisonId)
-      .run();
+
+    // ✅ CORRECT: Use DO SQLite .exec() API (not D1 .prepare().bind().run())
+    this.getDb().exec(
+      `UPDATE comparisons
+       SET status = 'failed', error = ?
+       WHERE id = ?`,
+      error,
+      comparisonId
+    );
   }
 
   /**
@@ -249,14 +267,23 @@ export class EnvPairDO {
    */
   async getComparison(comparisonId: string): Promise<ComparisonState | null> {
     await this.initializeSchema();
-    const row = (await this.db
-      .prepare(
-        `SELECT status, result_json, error
-         FROM comparisons
-         WHERE id = ?`
-      )
-      .bind(comparisonId)
-      .first()) as { status: string; result_json: string | null; error: string | null } | undefined;
+
+    // ✅ CORRECT: Use DO SQLite .exec() API which returns Cursor
+    // Cursor methods: .one() throws if no row, .all() returns array
+    const cursor = this.getDb().exec(
+      `SELECT status, result_json, error FROM comparisons WHERE id = ?`,
+      comparisonId
+    );
+
+    // Try to get first row; if no results, .one() will throw
+    let row: { status: string; result_json: string | null; error: string | null } | null = null;
+    try {
+      row = cursor.one() as { status: string; result_json: string | null; error: string | null };
+    } catch (e) {
+      // .one() throws "Expected exactly one result from SQL query, but got no results"
+      // when no rows match - this is expected for missing comparisons
+      return null;
+    }
 
     // ✅ Return null for missing record (not "running")
     if (!row) {
@@ -284,18 +311,19 @@ export class EnvPairDO {
    */
   async getComparisonsForHistory(limit: number = 10): Promise<ComparisonState[]> {
     await this.initializeSchema();
-    const rows = (await this.db
-      .prepare(
-        `SELECT status, result_json, error
-         FROM comparisons
-         WHERE status = 'completed'
-         ORDER BY ts DESC
-         LIMIT ?`
-      )
-      .bind(limit)
-      .all()) as { results: Array<{ status: string; result_json: string | null; error: string | null }> };
 
-    return rows.results.map((row: { status: string; result_json: string | null; error: string | null }) => {
+    // ✅ CORRECT: Use DO SQLite .exec().all() API (not D1 .prepare().bind().all())
+    const cursor = this.getDb().exec(
+      `SELECT status, result_json, error
+       FROM comparisons
+       WHERE status = 'completed'
+       ORDER BY ts DESC
+       LIMIT ?`,
+      limit
+    );
+    const rows = cursor.all();
+
+    return rows.map((row: { status: string; result_json: string | null; error: string | null }) => {
       const state: ComparisonState = { status: row.status as any };
       if (row.result_json) {
         state.result = JSON.parse(row.result_json);
@@ -327,50 +355,49 @@ export class EnvPairDO {
    */
   private async retainLatestN(n: number): Promise<void> {
     // Find timestamp of the Nth newest comparison
-    const nthRow = (await this.db
-      .prepare(
-        `SELECT ts FROM comparisons
-         ORDER BY ts DESC
-         LIMIT 1 OFFSET ?`
-      )
-      .bind(n - 1)
-      .first()) as { ts: number } | undefined;
+    // .one() throws "Expected exactly one result from SQL query, but got no results" if no match
+    const nthCursor = this.getDb().exec(
+      `SELECT ts FROM comparisons ORDER BY ts DESC LIMIT 1 OFFSET ?`,
+      n - 1
+    );
 
-    // If fewer than N comparisons exist, nothing to delete
-    if (!nthRow) {
+    // Try to get the Nth row; if fewer than N comparisons exist, .one() throws
+    let nthRow: { ts: number };
+    try {
+      nthRow = nthCursor.one() as { ts: number };
+    } catch (e) {
+      // Expected: fewer than N comparisons exist, nothing to delete
       return;
     }
 
     // Step 1: Find comparison IDs to delete
-    const oldComparisons = (await this.db
-      .prepare(
-        `SELECT id FROM comparisons WHERE ts < ?
-         ORDER BY ts ASC`
-      )
-      .bind(nthRow.ts)
-      .all()) as { results: Array<{ id: string }> };
+    const oldCursor = this.getDb().exec(
+      `SELECT id FROM comparisons WHERE ts < ? ORDER BY ts ASC`,
+      nthRow.ts
+    );
+    const oldComparisons = oldCursor.all() as Array<{ id: string }>;
 
-    if (oldComparisons.results.length === 0) {
+    if (oldComparisons.length === 0) {
       return;
     }
 
     // Step 2: Explicitly delete all probes for old comparisons
     // This ensures no orphaned probes remain even if PRAGMA foreign_keys is lost
-    const comparisonIds = oldComparisons.results.map((row) => row.id);
+    const comparisonIds = oldComparisons.map((row) => row.id);
     const placeholders = comparisonIds.map(() => "?").join(",");
 
-    await this.db
-      .prepare(`DELETE FROM probes WHERE comparison_id IN (${placeholders})`)
-      .bind(...comparisonIds)
-      .run();
+    this.getDb().exec(
+      `DELETE FROM probes WHERE comparison_id IN (${placeholders})`,
+      ...comparisonIds
+    );
 
     // Step 3: Delete old comparisons
     // At this point, all referencing probes are already gone,
     // so CASCADE is not necessary but provides defense-in-depth
-    await this.db
-      .prepare(`DELETE FROM comparisons WHERE ts < ?`)
-      .bind(nthRow.ts)
-      .run();
+    this.getDb().exec(
+      `DELETE FROM comparisons WHERE ts < ?`,
+      nthRow.ts
+    );
   }
 }
 

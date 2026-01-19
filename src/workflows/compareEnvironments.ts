@@ -70,15 +70,18 @@ export class CompareEnvironments {
     input: CompareEnvironmentsInput,
     env: Env
   ): Promise<{ comparisonId: string; status: string }> {
+  console.log(`[Workflow::run] Workflow run() called with input:`, input);
   const { comparisonId, leftUrl, rightUrl, pairKey, runnerContext } = input;
 
   try {
     // ===== STEP 1: Validate Inputs (Local, No Network) =====
 
+    console.log(`[Workflow] Validating inputs...`);
     if (!comparisonId || !leftUrl || !rightUrl || !pairKey) {
       throw new Error("Missing required parameters");
     }
 
+    console.log(`[Workflow] All inputs valid`);
     console.log(`[Workflow] Starting comparison ${comparisonId} for ${leftUrl} <-> ${rightUrl}`);
 
     // ===== STEP 2: Create Comparison Record in DO =====

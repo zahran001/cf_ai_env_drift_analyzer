@@ -1,9 +1,50 @@
-# Workflow Integration Implementation — Complete
+# Workflow Integration Implementation — API Mismatch Fixed, Workflow Invocation Pending
 
-**Status:** ✅ Implementation complete. All 11-step workflow orchestration implemented and integrated.
+**Status:** 🔧 WIP - API mismatch fixed, DO methods working in isolation, Workflow invocation issue under investigation.
 
 **Date:** 2026-01-18
 **Compliance:** CLAUDE.md sections 2.2, 3.2, 3.3, 4.2, 4.4
+
+---
+
+## CHECKPOINT: Current Blocker
+
+### ✅ Fixed Issues
+1. **Workflow ID Format:** 40-char pairKeyPrefix + hyphen + 36-char UUID = 77 chars ✅
+2. **D1 API → DO SQLite API:** Converted all `.prepare().bind().run()` to `.exec()` ✅
+3. **Cursor.one() Exception Handling:** Wrapped with try-catch for "no results" case ✅
+4. **Ring Buffer Exception:** Fixed `.one()` throw in retainLatestN by using try-catch ✅
+5. **DO Method Isolation Test:** `createComparison()` RPC call works when tested directly via POST /api/test-do ✅
+
+### ❌ Unresolved Issue: Workflow Not Creating DO Records
+
+**Evidence:**
+- POST /api/compare returns HTTP 202 with valid comparisonId ✅
+- Workflow class instantiated and run() method defined ✅
+- Direct DO RPC call works (verified via test endpoint) ✅
+- Subsequent GET /api/compare/:comparisonId returns 404 "Comparison not found" ❌
+
+**Root Cause:** Unknown - Workflow step.do("createComparison", ...) not persisting records to DO
+
+**Hypothesis:**
+- Workflow execution may be failing silently
+- Workflow RPC call to DO may use different serialization/invocation path than direct Worker RPC
+- Workflow step context or error handling may be swallowing exceptions
+- Workflow itself may not be executing (miniflare Workflow implementation issue)
+
+### Attempts Made
+1. Verified DO methods work in isolation (test-do endpoint succeeds)
+2. Checked for async/await issues (all properly awaited)
+3. Fixed Cursor API usage (.one() throws on no results)
+4. Verified ID format and routing logic
+5. Confirmed pairKeyPrefix extraction is correct (40 chars before UUID)
+
+### Next Steps Required
+1. Add comprehensive logging to Workflow run() method to verify execution
+2. Add logging to createComparison() RPC invocation to verify call receipt
+3. Check miniflare Workflow logs for errors or completion status
+4. Verify Workflow step.do() error handling and serialization
+5. Test alternative invocation patterns if RPC has limitations
 
 ---
 
@@ -14,10 +55,11 @@ The workflow integration implements the complete comparison pipeline:
 ```
 Worker (POST /api/compare)
     ↓
-    Validates URLs & computes pairKey
-    Generates stable comparisonId = ${pairKey}:${uuid}
+    Validates URLs & computes full pairKey (SHA-256)
+    Takes first 40 chars as pairKeyPrefix
+    Generates stable comparisonId = ${pairKeyPrefix}-${uuid} (77 chars total, under 100-char limit)
     ↓
-Starts Workflow with stable inputs
+Starts Workflow with stable inputs (pairKey: pairKeyPrefix for DO routing)
     ↓
 Workflow (compareEnvironments)
     Step 1-2:   Validate + Create DO record (status=running)
@@ -31,7 +73,8 @@ Workflow (compareEnvironments)
     Step 12:    Error handler (status=failed)
     ↓
 Worker (GET /api/compare/:comparisonId)
-    Polls DO via stable routing (idFromName(pairKey))
+    Extracts pairKeyPrefix from comparisonId (${pairKeyPrefix}-${uuid} format)
+    Polls DO via stable routing (idFromName(pairKeyPrefix))
     Returns status: running/completed/failed
 ```
 
@@ -174,10 +217,12 @@ export async function explainDiff(
 **Flow:**
 ```typescript
 const pairKey = await computePairKeySHA256(leftUrl, rightUrl);
-const comparisonId = `${pairKey}:${uuid}`;
+const pairKeyPrefix = pairKey.substring(0, 40); // First 40 chars of SHA-256
+const uuid = crypto.randomUUID();
+const comparisonId = `${pairKeyPrefix}-${uuid}`; // 77 chars total (under 100-char Workflow ID limit)
 const handle = await env.COMPARE_WORKFLOW.create({
   id: comparisonId,
-  params: { comparisonId, leftUrl, rightUrl, pairKey }
+  params: { comparisonId, leftUrl, rightUrl, pairKey: pairKeyPrefix }
 });
 return Response.json({ comparisonId }, { status: 202 });
 ```
@@ -323,8 +368,8 @@ compareEnvironments(step, input, env)
 ### Polling Flow
 ```
 GET /api/compare/:comparisonId
-  ↓ extract pairKey from comparisonId prefix
-  ↓ env.ENVPAIR_DO.idFromName(pairKey)
+  ↓ extract pairKeyPrefix from comparisonId prefix (${pairKeyPrefix}-${uuid} format, 40 chars before hyphen)
+  ↓ env.ENVPAIR_DO.idFromName(pairKeyPrefix)
   ↓ stub.getComparison(comparisonId)
   ↓ return { status, result?, error? }
 ```
