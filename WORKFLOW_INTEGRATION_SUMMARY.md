@@ -1,65 +1,130 @@
-# Workflow Integration Implementation — Code Complete, Local Dev Limitation Identified
+# Workflow Integration Implementation — Blocker: Runtime Binding Type Mismatch
 
-**Status:** ✅ Code Complete - Production ready. Workflow execution blocked by miniflare local dev limitation.
+**Status:** 🚫 **BLOCKER IDENTIFIED** — Workflow binding type resolving to `fetcher` instead of Workflow API at runtime
 
-**Date:** 2026-01-19
+**Date:** 2026-01-19 (Updated: 2026-01-19 18:10 UTC)
 **Compliance:** CLAUDE.md sections 2.2, 3.2, 3.3, 4.2, 4.4
 
 ---
 
-## CHECKPOINT: Workflow Local Development Limitation Identified
+## BLOCKER: Production Workflow Binding Type Mismatch
 
-### ✅ Fixed & Verified Components
-1. **Workflow ID Format:** 40-char pairKeyPrefix + hyphen + 36-char UUID = 77 chars ✅
-2. **D1 API → DO SQLite API:** All `.prepare().bind().run()` → `.exec()` ✅
-3. **Cursor.one() Exception Handling:** Wrapped with try-catch for "no results" case ✅
-4. **Ring Buffer Exception:** Fixed `.one()` throw in retainLatestN by using try-catch ✅
-5. **DO Method Isolation Test:** Direct RPC calls work perfectly (`createComparison()` tested) ✅
-6. **Workflow Class Indentation:** Fixed syntax error in compareEnvironments.ts ✅
-
-### ❌ Root Cause Identified: Miniflare Workflows Not Executing Locally
+### Root Cause Identified
 
 **Critical Discovery:**
-The Workflow `run()` method is **never being invoked** in local `wrangler dev` environment.
+`env.COMPARE_WORKFLOW` binding is resolving to a generic HTTP `fetcher` object instead of the Workflow API at runtime, even though:
+- ✅ Wrangler 4.59.2 is correctly installed locally
+- ✅ Worker deploys successfully WITH Workflows config
+- ✅ `wrangler workflows list` shows COMPARE_WORKFLOW registered
+- ✅ Workflow class is properly exported from src/worker.ts
+- ✅ TypeScript type checking passes (no errors)
 
-**Evidence Chain:**
+**Evidence Chain (Production Deployment):**
 ```
-POST /api/compare {"leftUrl": "...", "rightUrl": "..."}
+POST /api/compare
   ↓
-Worker validates URLs ✅ (logs appear)
-Worker computes pairKey ✅ (logs appear)
-Worker calls env.COMPARE_WORKFLOW.create({id, params}) ✅ (logs appear: "Workflow created successfully")
-Worker returns HTTP 202 ✅ (client receives response)
+Worker validates URLs ✅
+Worker logs: "Workflow binding type: object"
+Worker logs: "Workflow binding methods: fetcher"  ← WRONG! Should have .create()/.get()
+Worker calls env.COMPARE_WORKFLOW.create({id, params})
   ↓
-[At this point, Workflow should execute in background]
+API succeeds (returns 202 ✅)
   ↓
-GET /api/compare/:comparisonId
+Workflow instantiated but run() method throws exception immediately
+CompareEnvironments.run - Exception Thrown ← No [Workflow::run] logs appear
   ↓
-Polls DO via RPC ✅ (method works, but record not found)
-
-[Workflow::run] 🚀 WORKFLOW STARTED  ❌ (LOG NEVER APPEARS)
-[Workflow::run] Input received... ❌ (LOG NEVER APPEARS)
+GET /api/compare/:comparisonId polls DO
+  ↓
+Comparison record never created (Workflow never executed)
 ```
 
-**Conclusion:**
-miniflare's Cloudflare Workflows support does not execute Workflow instances locally. The `create()` call succeeds and returns a handle, but the actual workflow execution never happens.
+### Debugging Layers Completed
 
-### Code Status: Production Ready
+| Layer | Test | Result | Status |
+|-------|------|--------|--------|
+| **1** | Wrangler version | 4.59.2 ✅ | PASS |
+| **2** | Worker deploys without Workflows | Success ✅ | PASS |
+| **3** | CompareEnvironments export | Correct ✅ | PASS |
+| **4** | TypeScript type check | No errors ✅ | PASS |
+| **5** | Bundle inspection (dry-run) | Recognizes Workflow ✅ | PASS |
+| **6** | Deploy with Workflows config | Success ✅ | PASS |
+| **7** | Workflow execution | Binding is `fetcher` ❌ | **FAIL** |
 
-All code is **correct and complete**:
-- ✅ Workflow orchestration: 11-step pipeline fully implemented
+### Root Cause Analysis
+
+**Suspected causes (in order of likelihood):**
+
+1. **`compatibility_date` mismatch** (HIGHEST PRIORITY)
+   - Original: `2025-01-15` (incompatible with Wrangler 4.59.2)
+   - Fixed: `2024-09-19` (matching Wrangler 4.59.2 release date)
+   - **Status:** Changed, awaiting re-test
+
+2. **Runtime binding type resolution failure**
+   - Cloudflare production infrastructure not injecting Workflow methods
+   - `COMPARE_WORKFLOW` received as generic Fetcher instead of typed Workflow
+
+3. **@cloudflare/workers-types version mismatch**
+   - May not match Wrangler 4.59.2
+   - Needs verification: `npm ls @cloudflare/workers-types`
+
+### Code Status: Architecture Correct, Runtime Blocker
+
+All code is **architecturally correct** but **blocked by runtime binding issue**:
+- ✅ Workflow orchestration: 12-step pipeline fully implemented
 - ✅ DO storage: All 6 methods working (verified via direct RPC)
 - ✅ Worker API: Validation, ID generation, routing correct
 - ✅ Error handling: Proper try-catch, idempotency patterns
 - ✅ Database: DO-local SQLite fully converted from D1 API
+- ❌ **Workflow binding:** Resolves to `fetcher` instead of Workflow API at runtime
 
-### Workaround for Local Testing
+### Next Action: Verify compatibility_date Fix
 
-1. **Option A:** Deploy to Cloudflare production (`wrangler deploy`) to test Workflow execution
-2. **Option B:** Use alternative test pattern - call DO methods directly instead of via Workflow
-3. **Option C:** File issue with miniflare/Wrangler about Workflows local execution support
+**Command to re-test:**
+```bash
+npx wrangler deploy
+# Then curl to trigger workflow
+curl -X POST https://cf-ai-analyzer-abc123.workers.dev/api/compare \
+  -H "Content-Type: application/json" \
+  -d '{"leftUrl":"https://httpbin.org/status/200","rightUrl":"https://httpbin.org/status/200"}'
 
-The Workflow code is ready for production deployment.
+# Check logs
+npx wrangler tail
+# Look for: [Workflow::run] 🚀 WORKFLOW STARTED
+```
+
+**Expected outcome if fixed:**
+- Workflow binding methods shows: `create`, `get` (not `fetcher`)
+- `[Workflow::run] 🚀 WORKFLOW STARTED` appears in logs
+- Workflow executes through all steps
+
+### If compatibility_date Fix Doesn't Work
+
+**Fallback diagnostics:**
+```bash
+# 1. Verify workers-types version
+npm ls @cloudflare/workers-types
+# Should be >= 4.20250101.0
+
+# 2. Check env.d.ts type resolution
+npx tsc --noEmit src/env.d.ts
+
+# 3. Inspect deployed Worker via Cloudflare API
+curl https://api.cloudflare.com/client/v4/accounts/{account_id}/workers/scripts/cf_ai_env_drift_analyzer \
+  -H "Authorization: Bearer {token}"
+```
+
+### Files Modified (This Session)
+
+| File | Change | Impact |
+|------|--------|--------|
+| wrangler.toml | `compatibility_date: 2025-01-15` → `2024-09-19` | Should fix binding type resolution |
+| src/env.d.ts | Fixed import: `import type EnvPairDO` → `import type { EnvPairDO }` | Type safety |
+
+### Unresolved Questions
+
+- [ ] Will `compatibility_date = "2024-09-19"` fix the runtime binding type issue?
+- [ ] Is the issue with Cloudflare's runtime infrastructure or Wrangler deployment?
+- [ ] Does @cloudflare/workers-types version need updating?
 
 ---
 

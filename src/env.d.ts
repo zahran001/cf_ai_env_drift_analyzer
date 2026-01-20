@@ -1,4 +1,4 @@
-import type EnvPairDO from "./storage/envPairDO";
+import type { EnvPairDO } from "./storage/envPairDO";
 import type { CompareEnvironmentsInput } from "./workflows/compareEnvironments";
 
 /**
