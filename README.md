@@ -119,14 +119,7 @@ The developer now understands *why* the behavior differs, not just *that* it dif
 
 ---
 
-## Running the Project
-
-### Prerequisites
-- Node.js
-- Cloudflare account
-- Wrangler CLI
-
-### Local Development
+## How to Run Locally
 ```bash
-npm install
-wrangler dev
+npm run dev
+npm run dev:ui
