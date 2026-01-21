@@ -12,8 +12,7 @@
  * - No AI/LLM calls
  * - Output conforms to EnvDiff schema exactly
  */
-
-import type { SignalEnvelope, ProbeSuccess } from "@shared/signal";
+import type { ProbeSuccess, FrozenSignalEnvelope } from "@shared/signal";
 import type { EnvDiff, Change } from "@shared/diff";
 import { DIFF_SCHEMA_VERSION, computeMaxSeverity, unchanged, changed } from "@shared/diff";
 import { classify } from "./classify";
@@ -27,11 +26,14 @@ import { classify } from "./classify";
  * - Applies all Phase-B2 classification rules
  * - Returns deterministic findings array
  *
- * @param leftEnvelope - Left side probe result (or failure)
- * @param rightEnvelope - Right side probe result (or failure)
+ * Accepts FrozenSignalEnvelope (JSON-serialized versions from Workflow step.do())
+ * which is structurally compatible with SignalEnvelope.
+ *
+ * @param leftEnvelope - Left side probe result (or failure), potentially from Workflow serialization
+ * @param rightEnvelope - Right side probe result (or failure), potentially from Workflow serialization
  * @returns EnvDiff with deterministic findings
  */
-export function computeDiff(leftEnvelope: SignalEnvelope, rightEnvelope: SignalEnvelope): EnvDiff {
+export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: FrozenSignalEnvelope): EnvDiff {
   // Extract probe outcomes
   const leftOk = leftEnvelope.result.ok;
   const rightOk = rightEnvelope.result.ok;

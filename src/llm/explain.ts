@@ -52,7 +52,7 @@ export async function explainDiff(
   // Call Workers AI (Llama 3.3)
   let llmResponse: Response;
   try {
-    llmResponse = await ai.run("@cf/meta/llama-3.3-70b-instruct-fp8" as any, {
+    llmResponse = await ai.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast" as any, {
       prompt,
       max_tokens: 1024,
     });

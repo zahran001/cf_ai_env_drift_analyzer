@@ -268,17 +268,21 @@ export class EnvPairDO extends DurableObject {
   async getComparison(comparisonId: string): Promise<ComparisonState | null> {
     await this.initializeSchema();
 
+    // Stale comparison detection (fail-safe for terminated workflows)
+    const STALE_MS = 5 * 60 * 1000; // 5 minutes
+    const now = Date.now();
+
     // ✅ CORRECT: Use DO SQLite .exec() API which returns Cursor
     // Cursor methods: .one() throws if no row, .all() returns array
     const cursor = this.getDb().exec(
-      `SELECT status, result_json, error FROM comparisons WHERE id = ?`,
+      `SELECT status, ts, result_json, error FROM comparisons WHERE id = ?`,
       comparisonId
     );
 
     // Try to get first row; if no results, .one() will throw
-    let row: { status: string; result_json: string | null; error: string | null } | null = null;
+    let row: { status: string; ts: number; result_json: string | null; error: string | null } | null = null;
     try {
-      row = cursor.one() as { status: string; result_json: string | null; error: string | null };
+      row = cursor.one() as { status: string; ts: number; result_json: string | null; error: string | null };
     } catch (e) {
       // .one() throws "Expected exactly one result from SQL query, but got no results"
       // when no rows match - this is expected for missing comparisons
@@ -288,6 +292,33 @@ export class EnvPairDO extends DurableObject {
     // ✅ Return null for missing record (not "running")
     if (!row) {
       return null;
+    }
+
+    // ✅ STALE CHECK: If running but older than STALE_MS, mark as failed
+    // This handles manual Workflow termination or unexpected crashes.
+    // DO owns this decision; it marks stale comparisons as failed.
+    if (row.status === "running") {
+      const age = now - row.ts;
+      if (age > STALE_MS) {
+        console.warn(
+          `[DO] Comparison ${comparisonId} is stale (${Math.round(age / 1000)}s old), marking as failed`
+        );
+        // Update the comparison to failed state
+        // Clear result_json for consistency (failed comparisons have no result)
+        this.getDb().exec(
+          `UPDATE comparisons
+           SET status = ?, error = ?, result_json = NULL
+           WHERE id = ?`,
+          "failed",
+          "stale comparison (workflow terminated or lost)",
+          comparisonId
+        );
+        // Return the updated state
+        return {
+          status: "failed",
+          error: "stale comparison (workflow terminated or lost)",
+        };
+      }
     }
 
     const state: ComparisonState = { status: row.status as any };

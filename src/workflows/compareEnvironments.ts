@@ -33,7 +33,9 @@
  * 12. On error: DO: failComparison(comparisonId, errorMessage)
  */
 
-import type { SignalEnvelope, CfContextSnapshot } from "@shared/signal";
+import { WorkflowEntrypoint } from "cloudflare:workers";
+import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
+import type { CfContextSnapshot, FrozenSignalEnvelope } from "@shared/signal";
 import type { Env } from "../env";
 import { activeProbeProvider } from "../providers/activeProbe";
 import { computeDiff } from "../analysis/diff";
@@ -50,26 +52,24 @@ export interface CompareEnvironmentsInput {
 /**
  * Workflow class for environment comparison.
  *
- * Cloudflare Workflows requires a class with a `run` method.
- * Called via: env.COMPARE_WORKFLOW.create({ id, params: input })
+ * Extends WorkflowEntrypoint with Env binding and CompareEnvironmentsInput payload.
+ * Called via: env.COMPARE_WORKFLOW.create({ id, payload: input })
  */
-export class CompareEnvironments {
+export class CompareEnvironments extends WorkflowEntrypoint<Env, CompareEnvironmentsInput> {
   /**
    * Main workflow entrypoint.
    *
-   * Cloudflare Workflows automatically provides the `step` context to the workflow function.
-   * The step parameter type is inferred from the Workflow binding.
-   *
+   * @param event - WorkflowEvent containing the payload
    * @param step - Workflow step context (for step.do, step.sleep, etc.)
-   * @param input - Stable inputs (comparisonId, leftUrl, rightUrl, pairKey)
-   * @param env - Worker environment with bindings
    * @returns Workflow completion result
    */
   async run(
-    step: any, // Cloudflare Workflow step context (type injected at runtime)
-    input: CompareEnvironmentsInput,
-    env: Env
+    event: WorkflowEvent<CompareEnvironmentsInput>,
+    step: WorkflowStep
   ): Promise<{ comparisonId: string; status: string }> {
+    const input = event.payload;
+    const env = this.env;
+
     console.log(`[Workflow::run] 🚀 WORKFLOW STARTED`);
     console.log(`[Workflow::run] Input received:`, JSON.stringify(input));
     console.log(`[Workflow::run] Input keys:`, Object.keys(input));
@@ -101,11 +101,15 @@ export class CompareEnvironments {
 
       // ===== STEP 3: Probe Left URL =====
 
-      let leftEnvelope: SignalEnvelope;
+      let leftEnvelope: FrozenSignalEnvelope;
       try {
         leftEnvelope = await step.do("probeLeft", async () => {
-          return activeProbeProvider.probe(leftUrl, runnerContext);
+          const result = await activeProbeProvider.probe(leftUrl, runnerContext);
+          return result as any;
         });
+        if (!leftEnvelope) {
+          throw new Error("probeLeft returned empty result");
+        }
       } catch (err) {
         // Fail comparison on probe error
         await step.do("failLeft", async () => {
@@ -130,11 +134,15 @@ export class CompareEnvironments {
 
       // ===== STEP 5: Probe Right URL =====
 
-      let rightEnvelope: SignalEnvelope;
+      let rightEnvelope: FrozenSignalEnvelope;
       try {
         rightEnvelope = await step.do("probeRight", async () => {
-          return activeProbeProvider.probe(rightUrl, runnerContext);
+          const result = await activeProbeProvider.probe(rightUrl, runnerContext);
+          return result as any;
         });
+        if (!rightEnvelope) {
+          throw new Error("probeRight returned empty result");
+        }
       } catch (err) {
         // Fail comparison on probe error
         await step.do("failRight", async () => {
@@ -164,15 +172,18 @@ export class CompareEnvironments {
         `[Workflow] Diff computed for ${comparisonId}: ${diff.findings.length} findings`
       );
 
-      // ===== STEP 8: Load History (Optional, For LLM Context) =====
+      // ===== STEP 8: Load History (Truly Optional, For LLM Context) =====
 
-      const history = await step
-        .do("loadHistory", async () => {
+      const history = await step.do("loadHistory", async () => {
+        try {
           const doId = env.ENVPAIR_DO.idFromName(pairKey);
           const stub = env.ENVPAIR_DO.get(doId);
-          return (stub as any).getComparisonsForHistory(5);
-        })
-        .catch(() => []);
+          return await (stub as any).getComparisonsForHistory(5);
+        } catch (err) {
+          console.warn(`[Workflow] loadHistory failed (non-fatal): ${String(err)}`);
+          return [];
+        }
+      });
 
       // ===== STEP 9: Call LLM (Retry Loop, Max 3 Attempts) =====
 
@@ -225,6 +236,9 @@ export class CompareEnvironments {
       }
 
       // ===== STEP 11: Save Result =====
+      // ✅ IDEMPOTENT: no Date.now() or other non-deterministic values
+      // The DO handles createdAt timestamp once in createComparison
+      // Retries will upsert the same result without changing the stored timestamp
 
       await step.do("saveResult", async () => {
         const doId = env.ENVPAIR_DO.idFromName(pairKey);
@@ -232,7 +246,6 @@ export class CompareEnvironments {
         return (stub as any).saveResult(comparisonId, {
           diff,
           explanation,
-          timestamp: Date.now(),
         });
       });
 
