@@ -193,13 +193,15 @@ export class CompareEnvironments extends WorkflowEntrypoint<Env, CompareEnvironm
 
       while (llmAttempts < MAX_LLM_ATTEMPTS) {
         try {
+          console.log(`[Workflow] 🔍 BEFORE explainDiff - attempt ${llmAttempts + 1}, diff findings: ${diff.findings.length}`);
           explanation = await step.do(
             `explainDiff_attempt_${llmAttempts + 1}`,
             async () => {
               return explainDiff(diff, history, env.AI);
             }
           );
-          console.log(`[Workflow] LLM explanation generated for ${comparisonId}`);
+          console.log(`[Workflow] ✅ AFTER explainDiff - explanation generated for ${comparisonId}`);
+          console.log(`[Workflow] Explanation:`, JSON.stringify(explanation));
           break; // Success
         } catch (err) {
           llmAttempts++;

@@ -343,7 +343,7 @@ export class EnvPairDO extends DurableObject {
   async getComparisonsForHistory(limit: number = 10): Promise<ComparisonState[]> {
     await this.initializeSchema();
 
-    // ✅ CORRECT: Use DO SQLite .exec().all() API (not D1 .prepare().bind().all())
+    // ✅ CORRECT: Use DO SQLite .exec().toArray() API (not D1 .prepare().bind().all())
     const cursor = this.getDb().exec(
       `SELECT status, result_json, error
        FROM comparisons
@@ -352,7 +352,7 @@ export class EnvPairDO extends DurableObject {
        LIMIT ?`,
       limit
     );
-    const rows = cursor.all();
+    const rows = cursor.toArray();
 
     return rows.map((row: { status: string; result_json: string | null; error: string | null }) => {
       const state: ComparisonState = { status: row.status as any };
@@ -406,7 +406,7 @@ export class EnvPairDO extends DurableObject {
       `SELECT id FROM comparisons WHERE ts < ? ORDER BY ts ASC`,
       nthRow.ts
     );
-    const oldComparisons = oldCursor.all() as Array<{ id: string }>;
+    const oldComparisons = oldCursor.toArray() as Array<{ id: string }>;
 
     if (oldComparisons.length === 0) {
       return;

@@ -50,7 +50,7 @@ export async function explainDiff(
   const prompt = buildPrompt(diff, history);
 
   // Call Workers AI (Llama 3.3)
-  let llmResponse: Response;
+  let llmResponse: any;
   try {
     llmResponse = await ai.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast" as any, {
       prompt,
@@ -60,26 +60,28 @@ export async function explainDiff(
     throw new Error(`Workers AI call failed: ${String(err)}`);
   }
 
-  // Parse response
-  let responseJson: unknown;
-  try {
-    responseJson = await llmResponse.json();
-  } catch (err) {
-    throw new Error(`Failed to parse Workers AI response as JSON: ${String(err)}`);
+  console.log("Workers AI raw response:", llmResponse);
+  console.log("Workers AI response type:", typeof llmResponse);
+
+  // Extract response (ai.run() returns { response, tool_calls, usage } directly)
+  const aiResult = (llmResponse as any)?.response;
+  if (typeof aiResult !== "string" || aiResult.trim().length === 0) {
+    throw new Error(`Workers AI response missing/empty response field: ${JSON.stringify(llmResponse)}`);
   }
 
-  // Extract result (Workers AI returns { result: { response: "..." } })
-  const aiResult = (responseJson as any)?.result?.response;
-  if (!aiResult) {
-    throw new Error("Workers AI response missing result.response field");
-  }
+  // Extract and parse LLM output as JSON
+  console.log("AI raw head:", aiResult.slice(0, 250));
+  const jsonText = extractJsonObject(aiResult);
+  console.log("AI json head:", jsonText.slice(0, 250));
 
-  // Parse LLM output as JSON
   let explanation: unknown;
   try {
-    explanation = JSON.parse(aiResult);
+    explanation = JSON.parse(jsonText);
   } catch (err) {
-    throw new Error(`LLM output is not valid JSON: ${String(err)}`);
+    throw new Error(
+      `LLM output is not valid JSON: ${String(err)}\n` +
+      `Extracted JSON head: ${jsonText.slice(0, 300)}`
+    );
   }
 
   // Validate structure
@@ -212,4 +214,42 @@ function validateExplanation(explanation: unknown): ExplainedComparison {
   }
 
   return obj as ExplainedComparison;
+}
+
+/**
+ * Strip markdown code fences from a string.
+ * Handles ```json ... ``` or ``` ... ```
+ */
+function stripCodeFences(s: string): string {
+  let t = s.trim();
+
+  // Remove ```json ... ``` or ``` ... ```
+  if (t.startsWith("```")) {
+    t = t.replace(/^```(?:json)?\s*/i, "");
+    t = t.replace(/```$/i, "");
+  }
+
+  return t.trim();
+}
+
+/**
+ * Extract JSON object from a string that may contain preamble or trailing text.
+ * Handles:
+ * - Bullet points before JSON
+ * - Code fences (```json ... ```)
+ * - Trailing text after JSON
+ *
+ * Throws if no valid JSON object is found.
+ */
+function extractJsonObject(s: string): string {
+  const t = stripCodeFences(s);
+
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
+
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error(`No JSON object found in model output. Head: ${t.slice(0, 300)}`);
+  }
+
+  return t.slice(start, end + 1).trim();
 }
