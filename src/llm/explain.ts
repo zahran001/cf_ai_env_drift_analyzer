@@ -71,7 +71,7 @@ export async function explainDiff(
 
   // Extract and parse LLM output as JSON
   console.log("AI raw head:", aiResult.slice(0, 250));
-  const jsonText = extractJsonObject(aiResult);
+  const jsonText = extractFirstJsonObject(aiResult);
   console.log("AI json head:", jsonText.slice(0, 250));
 
   let explanation: unknown;
@@ -233,23 +233,53 @@ function stripCodeFences(s: string): string {
 }
 
 /**
- * Extract JSON object from a string that may contain preamble or trailing text.
+ * Extract the first complete JSON object from a string using balanced-brace parsing.
  * Handles:
- * - Bullet points before JSON
+ * - Preamble text (bullets, instructions, explanations)
  * - Code fences (```json ... ```)
- * - Trailing text after JSON
+ * - Repeated JSON objects (returns only the first one)
+ * - Nested objects and arrays (correctly matches braces)
+ * - Trailing junk after the first JSON object
  *
- * Throws if no valid JSON object is found.
+ * Uses a state machine to track string literals and escape sequences,
+ * ensuring we don't confuse braces inside strings with actual JSON structure.
+ *
+ * Throws if no valid JSON object is found or braces are unmatched.
  */
-function extractJsonObject(s: string): string {
-  const t = stripCodeFences(s);
+function extractFirstJsonObject(raw: string): string {
+  const s = stripCodeFences(raw);
 
-  const start = t.indexOf("{");
-  const end = t.lastIndexOf("}");
-
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error(`No JSON object found in model output. Head: ${t.slice(0, 300)}`);
+  const start = s.indexOf("{");
+  if (start === -1) {
+    throw new Error(`No '{' found in model output. Head: ${s.slice(0, 300)}`);
   }
 
-  return t.slice(start, end + 1).trim();
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+
+    if (inString) {
+      if (escape) escape = false;
+      else if (ch === "\\") escape = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === "{") depth++;
+    else if (ch === "}") depth--;
+
+    if (depth === 0) {
+      return s.slice(start, i + 1).trim();
+    }
+  }
+
+  throw new Error(`Unclosed JSON object. Head: ${s.slice(start, start + 300)}`);
 }
