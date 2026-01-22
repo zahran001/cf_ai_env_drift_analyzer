@@ -543,6 +543,154 @@ describe("ActiveProbeProvider", () => {
   });
 
   // ============================================
+  // HTTP Error Response Tests (4xx/5xx Classification)
+  // ============================================
+
+  describe("HTTP Error Responses - Status Classification", () => {
+    test("sets ok: false for 4xx status codes (e.g., 404)", async () => {
+      jest.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+        new Response("Not Found", {
+          status: 404,
+          headers: { "content-type": "text/html" },
+        })
+      );
+
+      const envelope = await provider.probe("http://example.com");
+
+      expect(envelope.result.ok).toBe(false);
+      if (!envelope.result.ok && "response" in envelope.result) {
+        expect(envelope.result.response.status).toBe(404);
+        expect(envelope.result.response).toBeDefined();
+      } else {
+        fail("Expected ProbeResponseError with response field");
+      }
+
+      jest.restoreAllMocks();
+    });
+
+    test("sets ok: false for 5xx status codes (e.g., 500)", async () => {
+      jest.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+        new Response("Internal Server Error", {
+          status: 500,
+          headers: { "content-type": "text/html" },
+        })
+      );
+
+      const envelope = await provider.probe("http://example.com");
+
+      expect(envelope.result.ok).toBe(false);
+      if (!envelope.result.ok && "response" in envelope.result) {
+        expect(envelope.result.response.status).toBe(500);
+        expect(envelope.result.response).toBeDefined();
+      } else {
+        fail("Expected ProbeResponseError with response field");
+      }
+
+      jest.restoreAllMocks();
+    });
+
+    test("sets ok: true for 2xx status codes (e.g., 200)", async () => {
+      jest.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+        new Response("OK", {
+          status: 200,
+          headers: { "content-type": "text/plain" },
+        })
+      );
+
+      const envelope = await provider.probe("http://example.com");
+
+      expect(envelope.result.ok).toBe(true);
+      if (envelope.result.ok) {
+        expect(envelope.result.response.status).toBe(200);
+      } else {
+        fail("Expected ProbeSuccess");
+      }
+
+      jest.restoreAllMocks();
+    });
+
+    test("sets ok: true for 3xx redirect status codes (final response after redirect)", async () => {
+      // 301 redirects to 200 (typical scenario)
+      jest.spyOn(globalThis, "fetch" as any)
+        .mockResolvedValueOnce(
+          new Response(null, {
+            status: 301,
+            headers: { location: "http://redirected.com" },
+          })
+        )
+        .mockResolvedValueOnce(
+          new Response("OK", {
+            status: 200,
+            headers: { "content-type": "text/plain" },
+          })
+        );
+
+      const envelope = await provider.probe("http://example.com");
+
+      expect(envelope.result.ok).toBe(true);
+      if (envelope.result.ok) {
+        // Final response is 200 (after following redirect)
+        expect(envelope.result.response.status).toBe(200);
+        expect(envelope.result.redirects?.length).toBe(1);
+      } else {
+        fail("Expected ProbeSuccess");
+      }
+
+      jest.restoreAllMocks();
+    });
+
+    test("403 Forbidden returns ProbeResponseError (not network failure)", async () => {
+      jest.spyOn(globalThis, "fetch" as any).mockResolvedValue(
+        new Response("Forbidden", {
+          status: 403,
+          headers: { "content-type": "text/html" },
+        })
+      );
+
+      const envelope = await provider.probe("http://example.com");
+
+      expect(envelope.result.ok).toBe(false);
+      // Key distinction: has response field, not error field
+      expect("response" in envelope.result).toBe(true);
+      expect("error" in envelope.result).toBe(false);
+      if ("response" in envelope.result) {
+        expect(envelope.result.response.status).toBe(403);
+      }
+
+      jest.restoreAllMocks();
+    });
+
+    test("4xx response includes finalUrl from redirects", async () => {
+      jest.spyOn(globalThis, "fetch" as any)
+        .mockResolvedValueOnce(
+          new Response(null, {
+            status: 301,
+            headers: { location: "http://example.com/redirected" },
+          })
+        )
+        .mockResolvedValueOnce(
+          new Response("Not Found", {
+            status: 404,
+            headers: { "content-type": "text/html" },
+          })
+        );
+
+      const envelope = await provider.probe("http://example.com");
+
+      if (!envelope.result.ok && "response" in envelope.result) {
+        expect(envelope.result.response.finalUrl).toBe("http://example.com/redirected");
+        expect(envelope.result.response.status).toBe(404);
+        expect(envelope.result.redirects).toBeDefined();
+        expect(envelope.result.redirects?.length).toBe(1);
+      } else {
+        fail("Expected ProbeResponseError with response field");
+      }
+
+      jest.restoreAllMocks();
+    });
+  });
+
+  // ============================================
   // Error Handling Tests
   // ============================================
 

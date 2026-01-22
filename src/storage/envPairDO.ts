@@ -195,9 +195,10 @@ export class EnvPairDO extends DurableObject {
     await this.initializeSchema();
     const probeId = `${comparisonId}:${side}`;
     const now = Date.now();
-    // Extract finalUrl from successful result or use requestedUrl as fallback
+    // Extract finalUrl from any response (success or error) or use requestedUrl as fallback
+    // ProbeSuccess and ProbeResponseError both have response field; ProbeNetworkFailure does not
     const finalUrl =
-      envelope.result.ok && envelope.result.response
+      "response" in envelope.result
         ? envelope.result.response.finalUrl
         : envelope.requestedUrl;
     const envelopeJson = JSON.stringify(envelope);

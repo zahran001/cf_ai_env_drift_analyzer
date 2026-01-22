@@ -326,7 +326,7 @@ describe("MVP Mock Envelopes - Validator Edge Cases", () => {
     const diff = createBaseDiff({
       status: unchangedVal(200),
       timing: { durationMs: unchangedVal(100) } as TimingDiff,
-      probe: { leftOk: true, rightOk: true, outcomeChanged: false },
+      probe: { leftOk: true, rightOk: true, outcomeChanged: false, responsePresent: true },
     });
     expect(() => classify(diff)).not.toThrow();
   });
@@ -396,8 +396,15 @@ describe("MVP Mock Envelopes - Validator Edge Cases", () => {
 
   test("Probe failure findings are properly classified as critical", () => {
     const diff = createBaseDiff({
-      probe: { leftOk: false, rightOk: true, outcomeChanged: true },
-      status: unchangedVal(200),
+      probe: {
+        leftOk: false,
+        rightOk: true,
+        leftErrorCode: "dns_error", // Network failure (has error code)
+        outcomeChanged: true,
+        responsePresent: false,
+      },
+      // Left has no status (network failure), right has status 200
+      status: changeVal(undefined, 200),
     });
     const findings = classify(diff);
     const probeFindings = findings.filter(
@@ -426,7 +433,7 @@ describe("MVP Mock Envelopes - Rule Correctness Spot Checks", () => {
           changed: {},
         },
       } as any,
-      probe: { leftOk: true, rightOk: true, outcomeChanged: false },
+      probe: { leftOk: true, rightOk: true, outcomeChanged: false, responsePresent: true },
     });
     const findings = classify(diff);
     expect(findings.length).toBe(0);

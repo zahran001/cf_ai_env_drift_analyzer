@@ -56,6 +56,7 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
     leftErrorCode: isNetworkFailure(leftEnvelope.result) ? leftEnvelope.result.error.code : undefined,
     rightErrorCode: isNetworkFailure(rightEnvelope.result) ? rightEnvelope.result.error.code : undefined,
     outcomeChanged: leftOk !== rightOk,
+    responsePresent: leftHasResponse && rightHasResponse,
   };
 
   // If either probe encountered a network failure (no response), return early with minimal diff

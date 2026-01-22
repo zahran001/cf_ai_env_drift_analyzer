@@ -172,6 +172,9 @@ function getUnclaimedHeaderDiffs(diff: EnvDiff): string[] {
  * - Deduplicate findings (same code + section + keys)
  * - Sort by severity (critical > warn > info), then code, then message
  *
+ * DESIGN NOTE: Short-circuit only on NETWORK FAILURES (no response, only error code).
+ * HTTP error responses (4xx/5xx) have status codes and should still be compared for diffs.
+ *
  * @param diff - EnvDiff from probe comparison
  * @returns Array of DiffFinding items, sorted and deduplicated
  */
@@ -179,49 +182,72 @@ export function classify(diff: EnvDiff): DiffFinding[] {
   const findings: DiffFinding[] = [];
 
   // ========== RULE GROUP A: PROBE OUTCOME RULES ==========
+  // CRITICAL DISTINCTION:
+  // - ProbeSuccess: ok=true, has response (2xx/3xx)
+  // - ProbeResponseError: ok=false, has response (4xx/5xx)
+  // - ProbeNetworkFailure: ok=false, NO response, only error code (DNS/timeout/TLS)
+  //
+  // Rules A1/A2 detect when a side is a NETWORK FAILURE (no response).
+  // HTTP error responses are compared normally (routing/security/cache rules apply).
 
   if (!diff.probe.leftOk && !diff.probe.rightOk) {
-    const evidence: DiffEvidence[] = [{ section: "probe" }];
-    findings.push({
-      id: generateFindingId("PROBE_FAILURE", "probe"),
-      code: "PROBE_FAILURE",
-      category: "unknown",
-      severity: "critical",
-      message: "Both probes failed",
-      evidence,
-      left_value: diff.probe.leftErrorCode || "Unknown error",
-      right_value: diff.probe.rightErrorCode || "Unknown error",
-    });
-  } else if (diff.probe.leftOk !== diff.probe.rightOk) {
-    if (!diff.probe.leftOk) {
-      const evidence: DiffEvidence[] = [{ section: "probe", keys: ["left"] }];
+    // Both failed: could be both network failures OR both HTTP errors
+    // Only emit PROBE_FAILURE if BOTH are network failures (no status codes)
+    const leftIsNetworkFailure = diff.probe.leftErrorCode && !diff.status?.left;
+    const rightIsNetworkFailure = diff.probe.rightErrorCode && !diff.status?.right;
+
+    if (leftIsNetworkFailure && rightIsNetworkFailure) {
+      const evidence: DiffEvidence[] = [{ section: "probe" }];
       findings.push({
-        id: generateFindingId("PROBE_FAILURE", "probe", ["left"]),
+        id: generateFindingId("PROBE_FAILURE", "probe"),
         code: "PROBE_FAILURE",
         category: "unknown",
         severity: "critical",
-        message: "Left probe failed; right succeeded",
+        message: "Both probes failed (network-level)",
         evidence,
         left_value: diff.probe.leftErrorCode || "Unknown error",
-        right_value: diff.status?.right,
-      });
-    } else {
-      const evidence: DiffEvidence[] = [{ section: "probe", keys: ["right"] }];
-      findings.push({
-        id: generateFindingId("PROBE_FAILURE", "probe", ["right"]),
-        code: "PROBE_FAILURE",
-        category: "unknown",
-        severity: "critical",
-        message: "Right probe failed; left succeeded",
-        evidence,
-        left_value: diff.status?.left,
         right_value: diff.probe.rightErrorCode || "Unknown error",
       });
+      // Short-circuit: both are network failures, no diffs to compute
+      return postProcess(findings);
     }
-  }
-
-  if (!diff.probe.leftOk || !diff.probe.rightOk) {
-    return postProcess(findings);
+  } else if (diff.probe.leftOk !== diff.probe.rightOk) {
+    // One succeeded, one failed
+    if (!diff.probe.leftOk) {
+      const leftIsNetworkFailure = diff.probe.leftErrorCode && !diff.status?.left;
+      if (leftIsNetworkFailure) {
+        const evidence: DiffEvidence[] = [{ section: "probe", keys: ["left"] }];
+        findings.push({
+          id: generateFindingId("PROBE_FAILURE", "probe", ["left"]),
+          code: "PROBE_FAILURE",
+          category: "unknown",
+          severity: "critical",
+          message: "Left probe failed (network-level); right succeeded",
+          evidence,
+          left_value: diff.probe.leftErrorCode || "Unknown error",
+          right_value: diff.status?.right,
+        });
+        // Short-circuit: left is network failure
+        return postProcess(findings);
+      }
+    } else {
+      const rightIsNetworkFailure = diff.probe.rightErrorCode && !diff.status?.right;
+      if (rightIsNetworkFailure) {
+        const evidence: DiffEvidence[] = [{ section: "probe", keys: ["right"] }];
+        findings.push({
+          id: generateFindingId("PROBE_FAILURE", "probe", ["right"]),
+          code: "PROBE_FAILURE",
+          category: "unknown",
+          severity: "critical",
+          message: "Right probe failed (network-level); left succeeded",
+          evidence,
+          left_value: diff.status?.left,
+          right_value: diff.probe.rightErrorCode || "Unknown error",
+        });
+        // Short-circuit: right is network failure
+        return postProcess(findings);
+      }
+    }
   }
 
   // ========== RULE GROUP B: ROUTING RULES ==========

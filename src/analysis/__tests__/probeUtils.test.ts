@@ -39,6 +39,7 @@ describe("probeUtils", () => {
       leftErrorCode: "timeout",
       rightErrorCode: "dns_error",
       outcomeChanged: false,
+      responsePresent: false,
     });
   });
 
@@ -83,6 +84,7 @@ describe("probeUtils", () => {
       leftErrorCode: "timeout",
       rightErrorCode: undefined,
       outcomeChanged: true,
+      responsePresent: false,
     });
   });
 
@@ -127,6 +129,7 @@ describe("probeUtils", () => {
       leftErrorCode: undefined,
       rightErrorCode: "fetch_error",
       outcomeChanged: true,
+      responsePresent: false,
     });
   });
 
@@ -177,6 +180,7 @@ describe("probeUtils", () => {
       leftErrorCode: undefined,
       rightErrorCode: undefined,
       outcomeChanged: false,
+      responsePresent: true,
     });
   });
 });

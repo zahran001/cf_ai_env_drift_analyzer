@@ -28,38 +28,75 @@ function createBaseDiff(overrides: any = {}): EnvDiff {
 
 describe("classify", () => {
   describe("Probe Failures", () => {
-    it("should emit PROBE_FAILURE when both probes failed", () => {
+    // Network failures (no response, only error code)
+    it("should emit PROBE_FAILURE when both probes had network failures (DNS/timeout)", () => {
       const diff = createBaseDiff({
-        probe: { leftOk: false, rightOk: false, outcomeChanged: true },
+        probe: {
+          leftOk: false,
+          rightOk: false,
+          leftErrorCode: "dns_error",
+          rightErrorCode: "dns_error",
+          outcomeChanged: false,
+        },
+        // No status field when network failure (no HTTP response)
       });
       const findings = classify(diff);
       expect(findings).toHaveLength(1);
       expect(findings[0].code).toBe("PROBE_FAILURE");
       expect(findings[0].severity).toBe("critical");
+      expect(findings[0].message).toContain("network-level");
     });
 
-    it("should emit PROBE_FAILURE when left probe failed", () => {
+    it("should emit PROBE_FAILURE when left probe had network failure, right succeeded", () => {
       const diff = createBaseDiff({
-        probe: { leftOk: false, rightOk: true, outcomeChanged: true },
-        status: unchanged(200),
+        probe: {
+          leftOk: false,
+          rightOk: true,
+          leftErrorCode: "timeout",
+          outcomeChanged: true,
+        },
+        // Left has no status (network failure), right has status
+        status: change(undefined, 200),
       });
       const findings = classify(diff);
       expect(findings).toHaveLength(1);
       expect(findings[0].code).toBe("PROBE_FAILURE");
-      expect(findings[0].message).toBe("Left probe failed; right succeeded");
+      expect(findings[0].message).toContain("network-level");
     });
 
-    it("should emit PROBE_FAILURE when right probe failed", () => {
+    it("should emit PROBE_FAILURE when right probe had network failure, left succeeded", () => {
       const diff = createBaseDiff({
-        probe: { leftOk: true, rightOk: false, outcomeChanged: true },
-        status: unchanged(200),
+        probe: {
+          leftOk: true,
+          rightOk: false,
+          rightErrorCode: "tls_error",
+          outcomeChanged: true,
+        },
+        // Left has status, right has no status (network failure)
+        status: change(200, undefined),
       });
       const findings = classify(diff);
       expect(findings).toHaveLength(1);
-      expect(findings[0].message).toBe("Right probe failed; left succeeded");
+      expect(findings[0].message).toContain("network-level");
     });
 
-    it("should not emit findings when both probes succeeded", () => {
+    it("should not emit PROBE_FAILURE when both had HTTP errors (200 vs 404)", () => {
+      // Both responses exist (have status codes), even though right has ok: false
+      const diff = createBaseDiff({
+        probe: {
+          leftOk: true,
+          rightOk: false,
+          outcomeChanged: true,
+        },
+        status: change(200, 404),
+      });
+      const findings = classify(diff);
+      // Should emit STATUS_MISMATCH, not PROBE_FAILURE
+      expect(findings.some((f) => f.code === "PROBE_FAILURE")).toBe(false);
+      expect(findings.some((f) => f.code === "STATUS_MISMATCH")).toBe(true);
+    });
+
+    it("should not emit findings when both probes succeeded (200 vs 200)", () => {
       const diff = createBaseDiff({
         probe: { leftOk: true, rightOk: true, outcomeChanged: false },
         status: unchanged(200),
@@ -102,6 +139,67 @@ describe("classify", () => {
       });
       const findings = classify(diff);
       expect(findings).toHaveLength(0);
+    });
+
+    // Test cases for HTTP error responses (4xx/5xx)
+    // These have ok: false but still have status codes (not network failures)
+    it("should emit STATUS_MISMATCH for 200 vs 404 (both have responses)", () => {
+      const diff = createBaseDiff({
+        probe: {
+          leftOk: true,
+          rightOk: false,
+          outcomeChanged: true,
+        },
+        status: change(200, 404),
+      });
+      const findings = classify(diff);
+      const statusMismatch = findings.find((f) => f.code === "STATUS_MISMATCH");
+      expect(statusMismatch).toBeDefined();
+      expect(statusMismatch?.severity).toBe("critical");
+    });
+
+    it("should emit STATUS_MISMATCH for 200 vs 500", () => {
+      const diff = createBaseDiff({
+        probe: {
+          leftOk: true,
+          rightOk: false,
+          outcomeChanged: true,
+        },
+        status: change(200, 500),
+      });
+      const findings = classify(diff);
+      const statusMismatch = findings.find((f) => f.code === "STATUS_MISMATCH");
+      expect(statusMismatch).toBeDefined();
+      expect(statusMismatch?.severity).toBe("critical");
+    });
+
+    it("should emit STATUS_MISMATCH for 404 vs 500 (both error codes, severity warn)", () => {
+      const diff = createBaseDiff({
+        probe: {
+          leftOk: false,
+          rightOk: false,
+          outcomeChanged: true,
+        },
+        status: change(404, 500),
+      });
+      const findings = classify(diff);
+      const statusMismatch = findings.find((f) => f.code === "STATUS_MISMATCH");
+      expect(statusMismatch).toBeDefined();
+      // Both are 4xx/5xx, so severity is "warn" not "critical"
+      expect(statusMismatch?.severity).toBe("warn");
+    });
+
+    it("should not emit PROBE_FAILURE for HTTP errors (only STATUS_MISMATCH)", () => {
+      const diff = createBaseDiff({
+        probe: {
+          leftOk: true,
+          rightOk: false,
+          outcomeChanged: true,
+        },
+        status: change(200, 404),
+      });
+      const findings = classify(diff);
+      expect(findings.some((f) => f.code === "PROBE_FAILURE")).toBe(false);
     });
   });
 

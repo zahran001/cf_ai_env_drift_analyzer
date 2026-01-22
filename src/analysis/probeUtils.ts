@@ -7,6 +7,8 @@ export function compileProbeOutcomeDiff(
 ): ProbeOutcomeDiff {
   const leftOk = left.result.ok;
   const rightOk = right.result.ok;
+  const leftHasResponse = "response" in left.result;
+  const rightHasResponse = "response" in right.result;
 
   return {
     leftOk,
@@ -14,5 +16,6 @@ export function compileProbeOutcomeDiff(
     leftErrorCode: !leftOk ? (left.result as any).error?.code : undefined,
     rightErrorCode: !rightOk ? (right.result as any).error?.code : undefined,
     outcomeChanged: leftOk !== rightOk,
+    responsePresent: leftHasResponse && rightHasResponse,
   };
 }

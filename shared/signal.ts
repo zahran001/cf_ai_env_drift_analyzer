@@ -95,6 +95,7 @@ export type CfContextSnapshot = Partial<{
  * Successful probe result.
  *
  * ok=true means the HTTP request succeeded AND the response status was 2xx/3xx.
+ * Discriminant: has response field (never has error field).
  */
 export type ProbeSuccess = {
   ok: true;
@@ -107,10 +108,16 @@ export type ProbeSuccess = {
 };
 
 /**
- * Response received but with error status (4xx/5xx).
+ * HTTP error response (4xx/5xx status codes).
  *
- * ok=false with response field means the HTTP request succeeded but status indicates failure.
- * This is distinct from network errors (see ProbeNetworkFailure).
+ * ok=false with response field means the HTTP request succeeded but status indicates an error.
+ * This is DISTINCT from network failures: the request completed and we received an HTTP response,
+ * but the status code is in the error range.
+ *
+ * Discriminant: has response field (never has error field).
+ *
+ * Example: 404 Not Found, 500 Internal Server Error
+ * These should be compared normally in diffs (STATUS_MISMATCH, header diffs, etc.).
  */
 export type ProbeResponseError = {
   ok: false;
@@ -123,9 +130,17 @@ export type ProbeResponseError = {
 };
 
 /**
- * Network-level probe failure (DNS, timeout, TLS, etc.).
+ * Network-level probe failure (DNS, timeout, TLS, SSRF, etc.).
  *
- * ok=false with error field means the request never completed.
+ * ok=false with error field (never has response field) means the request failed
+ * before receiving an HTTP response. Examples:
+ * - DNS resolution failure
+ * - Connection timeout
+ * - TLS certificate verification failure
+ * - SSRF validation rejected
+ * - Invalid URL format
+ *
+ * Discriminant: has error field (never has response field).
  */
 export type ProbeNetworkFailure = {
   ok: false;

@@ -191,6 +191,36 @@ export type DiffFinding = {
  *
  * In the comparison pipeline, left and right envelopes are always
  * present once created, so leftOk and rightOk are required.
+ *
+ * SEMANTICS OF ok FLAG:
+ * - ok=true: HTTP request succeeded AND status < 400 (2xx/3xx responses)
+ * - ok=false: Either:
+ *   (A) HTTP request succeeded but status >= 400 (4xx/5xx error responses)
+ *   (B) HTTP request failed before receiving a response (network failure)
+ *
+ * TO DISTINGUISH CASES (A) vs (B), CHECK PRESENCE OF STATUS:
+ * - HTTP error response (4xx/5xx): ok=false, status field present in diff, errorCode may or may not be set
+ * - Network failure (DNS/timeout/TLS/SSRF): ok=false, status field NOT present in diff, errorCode is set
+ *
+ * NOTE: The early-exit path in computeDiff still calls classify() to generate PROBE_FAILURE
+ * findings for network failures. On that path, diff has no status field, but has errorCode set.
+ * To detect a network failure in classify(), check: errorCode present AND status absent.
+ * On the normal path (both probes completed), status fields are populated, making the
+ * ok=false distinction unambiguous via status presence.
+ *
+ * Use responsePresent flag (below) as safe way to check if both probes had response field.
+ *
+ * EXAMPLES:
+ * 1. 200 vs 200: leftOk=true, rightOk=true, outcomeChanged=false
+ * 2. 200 vs 404: leftOk=true, rightOk=false, outcomeChanged=true
+ *    → status.left=200, status.right=404 (both have responses, classify normally)
+ * 3. 200 vs DNS_ERROR: leftOk=true, rightOk=false, outcomeChanged=true
+ *    → status.left=200, status.right=undefined, rightErrorCode='dns_error'
+ *    → early-exit from computeDiff (right has no response), minimal diff
+ * 4. DNS_ERROR vs DNS_ERROR: leftOk=false, rightOk=false, outcomeChanged=false
+ *    → status.left=undefined, status.right=undefined
+ *    → leftErrorCode='dns_error', rightErrorCode='dns_error'
+ *    → early-exit from computeDiff (neither has response)
  */
 export type ProbeOutcomeDiff = {
   leftOk: boolean;
@@ -199,6 +229,9 @@ export type ProbeOutcomeDiff = {
   /**
    * If a probe failed, capture stable error codes (if available),
    * not raw exception strings.
+   *
+   * Presence indicates a network failure (no HTTP response received).
+   * Paired with absence of status field to distinguish from HTTP errors.
    */
   leftErrorCode?: string;
   rightErrorCode?: string;
@@ -207,6 +240,19 @@ export type ProbeOutcomeDiff = {
    * If one side failed and the other succeeded, that is drift.
    */
   outcomeChanged: boolean;
+
+  /**
+   * True if both probes completed with an HTTP response (2xx, 3xx, 4xx, or 5xx).
+   * False if either probe failed at network level (DNS, timeout, TLS, SSRF, invalid URL).
+   *
+   * Use this to safely distinguish:
+   * - responsePresent=true: status field is populated; ok=false means HTTP error (4xx/5xx)
+   * - responsePresent=false: status field is absent; ok=false means network failure
+   *
+   * This flag prevents accidental confusion between HTTP errors and network failures
+   * when consuming ProbeOutcomeDiff in future code.
+   */
+  responsePresent: boolean;
 };
 
 export type EnvDiff = {
