@@ -93,6 +93,8 @@ export type CfContextSnapshot = Partial<{
 
 /**
  * Successful probe result.
+ *
+ * ok=true means the HTTP request succeeded AND the response status was 2xx/3xx.
  */
 export type ProbeSuccess = {
   ok: true;
@@ -105,9 +107,27 @@ export type ProbeSuccess = {
 };
 
 /**
- * Failed probe result.
+ * Response received but with error status (4xx/5xx).
+ *
+ * ok=false with response field means the HTTP request succeeded but status indicates failure.
+ * This is distinct from network errors (see ProbeNetworkFailure).
  */
-export type ProbeFailure = {
+export type ProbeResponseError = {
+  ok: false;
+
+  response: ResponseMetadata;
+
+  redirects?: RedirectHop[];
+
+  durationMs: number;
+};
+
+/**
+ * Network-level probe failure (DNS, timeout, TLS, etc.).
+ *
+ * ok=false with error field means the request never completed.
+ */
+export type ProbeNetworkFailure = {
   ok: false;
 
   error: ProbeError;
@@ -118,7 +138,7 @@ export type ProbeFailure = {
 /**
  * Union of possible probe outcomes.
  */
-export type ProbeResult = ProbeSuccess | ProbeFailure;
+export type ProbeResult = ProbeSuccess | ProbeResponseError | ProbeNetworkFailure;
 
 /**
  * The canonical signal envelope.

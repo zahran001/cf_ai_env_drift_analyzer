@@ -2,7 +2,8 @@ import ipaddr from "ipaddr.js";
 import type {
   SignalEnvelope,
   ProbeSuccess,
-  ProbeFailure,
+  ProbeResponseError,
+  ProbeNetworkFailure,
   ProbeErrorCode,
   RedirectHop,
   ResponseMetadata,
@@ -229,6 +230,20 @@ function classifyFetchError(error: unknown): ProbeErrorCode {
 }
 
 /**
+ * Classify HTTP status code as probe success or failure.
+ *
+ * Semantics:
+ * - 2xx and 3xx: Probe succeeded (request was fulfilled or redirected)
+ * - 4xx and 5xx: Probe failed (request was rejected or server errored)
+ *
+ * This ensures that status drift (e.g., 200 vs 404) is correctly captured
+ * in outcomeChanged and severity classification.
+ */
+function classifyStatusOutcome(status: number): boolean {
+  return status < 400;
+}
+
+/**
  * Filter and normalize response headers
  * Critique D: Sorted keys for deterministic JSON output
  */
@@ -283,7 +298,7 @@ async function followRedirects(
   tracker: DurationTracker
 ): Promise<
   | { finalUrl: string; redirects: RedirectHop[]; status: number; headers: Headers }
-  | ProbeFailure
+  | ProbeNetworkFailure
 > {
   const redirects: RedirectHop[] = [];
   const visited = new Set<string>();
@@ -456,12 +471,22 @@ export class ActiveProbeProvider implements ISignalProvider {
       headers: headerSnapshot,
     };
 
-    const success: ProbeSuccess = {
-      ok: true,
-      response,
-      redirects: redirects.length > 0 ? redirects : undefined,
-      durationMs: tracker.getElapsedMs(),
-    };
+    // Classify response status: 2xx/3xx = success, 4xx/5xx = error response
+    const isSuccessStatus = classifyStatusOutcome(status);
+
+    const result: ProbeSuccess | ProbeResponseError = isSuccessStatus
+      ? {
+          ok: true,
+          response,
+          redirects: redirects.length > 0 ? redirects : undefined,
+          durationMs: tracker.getElapsedMs(),
+        }
+      : {
+          ok: false,
+          response,
+          redirects: redirects.length > 0 ? redirects : undefined,
+          durationMs: tracker.getElapsedMs(),
+        };
 
     return {
       schemaVersion: SIGNAL_SCHEMA_VERSION,
@@ -471,7 +496,7 @@ export class ActiveProbeProvider implements ISignalProvider {
       requestedUrl: url,
       capturedAt,
       cf: runnerContext,
-      result: success,
+      result,
     };
   }
 }

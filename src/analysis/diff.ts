@@ -12,10 +12,17 @@
  * - No AI/LLM calls
  * - Output conforms to EnvDiff schema exactly
  */
-import type { ProbeSuccess, FrozenSignalEnvelope } from "@shared/signal";
+import type { FrozenSignalEnvelope, ProbeSuccess, ProbeResponseError, ProbeNetworkFailure } from "@shared/signal";
 import type { EnvDiff, Change } from "@shared/diff";
 import { DIFF_SCHEMA_VERSION, computeMaxSeverity, unchanged, changed } from "@shared/diff";
 import { classify } from "./classify";
+
+/**
+ * Type guard: check if result is a network failure with error field
+ */
+function isNetworkFailure(result: any): result is ProbeNetworkFailure {
+  return "error" in result;
+}
 
 /**
  * Compute diff from two SignalEnvelopes.
@@ -38,17 +45,21 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
   const leftOk = leftEnvelope.result.ok;
   const rightOk = rightEnvelope.result.ok;
 
+  // Check if either probe is a network failure (ok=false with error, no response)
+  const leftHasResponse = "response" in leftEnvelope.result;
+  const rightHasResponse = "response" in rightEnvelope.result;
+
   // Build probe outcome diff
   const probeOutcomeDiff = {
     leftOk,
     rightOk,
-    leftErrorCode: !leftOk && "error" in leftEnvelope.result ? leftEnvelope.result.error.code : undefined,
-    rightErrorCode: !rightOk && "error" in rightEnvelope.result ? rightEnvelope.result.error.code : undefined,
+    leftErrorCode: isNetworkFailure(leftEnvelope.result) ? leftEnvelope.result.error.code : undefined,
+    rightErrorCode: isNetworkFailure(rightEnvelope.result) ? rightEnvelope.result.error.code : undefined,
     outcomeChanged: leftOk !== rightOk,
   };
 
-  // If either probe failed, return early with minimal diff
-  if (!leftOk || !rightOk) {
+  // If either probe encountered a network failure (no response), return early with minimal diff
+  if (!leftHasResponse || !rightHasResponse) {
     const findings = classify({
       schemaVersion: DIFF_SCHEMA_VERSION,
       comparisonId: leftEnvelope.comparisonId,
@@ -70,9 +81,11 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
     };
   }
 
-  // Both probes succeeded; extract responses
-  const leftResponse = (leftEnvelope.result as ProbeSuccess).response;
-  const rightResponse = (rightEnvelope.result as ProbeSuccess).response;
+  // Both probes completed (have response field); extract responses
+  // This includes both ProbeSuccess (ok=true) and ProbeResponseError (ok=false)
+  // TypeScript now knows from the check above that both have response fields
+  const leftResponse = (leftEnvelope.result as ProbeSuccess | ProbeResponseError).response;
+  const rightResponse = (rightEnvelope.result as ProbeSuccess | ProbeResponseError).response;
 
   // Build status diff
   const statusDiff: Change<number> =

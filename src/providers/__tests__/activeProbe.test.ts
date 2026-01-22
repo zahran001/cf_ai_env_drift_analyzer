@@ -34,7 +34,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://localhost");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("ssrf_blocked");
       }
     });
@@ -43,7 +43,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://localhost:8080");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("ssrf_blocked");
       }
     });
@@ -52,7 +52,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://2130706433");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("ssrf_blocked");
       }
     });
@@ -61,7 +61,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://0x7f000001");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("ssrf_blocked");
       }
     });
@@ -70,7 +70,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://[::1]");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("ssrf_blocked");
       }
     });
@@ -79,7 +79,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://10.0.0.1");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("ssrf_blocked");
       }
     });
@@ -88,7 +88,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://192.168.1.1");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("ssrf_blocked");
       }
     });
@@ -97,7 +97,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("ftp://example.com");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("invalid_url");
       }
     });
@@ -106,7 +106,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("not a valid url");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("invalid_url");
       }
     });
@@ -115,7 +115,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://0177.0.0.1");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("ssrf_blocked");
       }
     });
@@ -124,7 +124,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://172.16.0.1");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("ssrf_blocked");
       }
     });
@@ -133,7 +133,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://[fe80::1]");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("ssrf_blocked");
       }
     });
@@ -343,7 +343,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://example.com");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("timeout");
       }
 
@@ -378,7 +378,7 @@ describe("ActiveProbeProvider", () => {
 
       // Should fail due to timeout in redirect chain
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(
           envelope.result.error.code === "timeout" || envelope.result.error.code === "fetch_error"
         ).toBe(true);
@@ -423,7 +423,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://example.com");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("fetch_error");
         expect(envelope.result.error.message).toContain("loop");
       }
@@ -442,7 +442,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://example.com");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("fetch_error");
         expect(envelope.result.error.message).toContain("Location");
       }
@@ -458,7 +458,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://example.invalid");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("dns_error");
       }
 
@@ -473,7 +473,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("https://example.com");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("tls_error");
       }
 
@@ -488,7 +488,7 @@ describe("ActiveProbeProvider", () => {
       const envelope = await provider.probe("http://example.com");
 
       expect(envelope.result.ok).toBe(false);
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.code).toBe("fetch_error");
       }
 
@@ -550,7 +550,7 @@ describe("ActiveProbeProvider", () => {
     test("SSRF error includes validation details", async () => {
       const envelope = await provider.probe("http://127.0.0.1");
 
-      if (!envelope.result.ok) {
+      if (!envelope.result.ok && "error" in envelope.result) {
         expect(envelope.result.error.details).toBeDefined();
         expect(envelope.result.error.details?.hostname).toBeDefined();
       }
