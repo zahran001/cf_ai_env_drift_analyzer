@@ -123,6 +123,15 @@ export class CompareEnvironments extends WorkflowEntrypoint<Env, CompareEnvironm
         throw err;
       }
 
+      // Enrich left envelope with workflow context before storage
+      // (Provider doesn't know comparisonId, so enrichment happens here)
+      leftEnvelope = {
+        ...(leftEnvelope as any),
+        comparisonId,
+        probeId: `${comparisonId}:left`,
+        side: "left" as const,
+      };
+
       // ===== STEP 4: Save Left Probe =====
       // ✅ IDEMPOTENT: probe ID = ${comparisonId}:left (same every time)
 
@@ -155,6 +164,15 @@ export class CompareEnvironments extends WorkflowEntrypoint<Env, CompareEnvironm
         });
         throw err;
       }
+
+      // Enrich right envelope with workflow context before storage
+      // (Provider doesn't know comparisonId, so enrichment happens here)
+      rightEnvelope = {
+        ...(rightEnvelope as any),
+        comparisonId,
+        probeId: `${comparisonId}:right`,
+        side: "right" as const,
+      };
 
       // ===== STEP 6: Save Right Probe (idempotent) =====
 
