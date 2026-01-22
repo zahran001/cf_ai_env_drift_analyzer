@@ -96,6 +96,10 @@ This allows the system to:
 
 ---
 
+<img width="2248" height="1614" alt="image" src="https://github.com/user-attachments/assets/6898ba9c-dd90-4400-94d2-99a2f3943b56" />
+
+---
+
 ## Example Use Case
 
 A developer deploys a new version of an API.
