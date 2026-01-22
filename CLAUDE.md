@@ -1,6 +1,29 @@
-# CLAUDE.md — System Rulebook for cf_ai_env_drift_analyzer
+# CLAUDE.md - System Rulebook for cf_ai_env_drift_analyzer
 
-**Authority:** This document governs all AI-assisted coding in this repository. Existing documentation (Backend_System_Architecture.md, MVP_FEATURE_SET.md, MVP_Tracker.md, README.md) is authoritative. This file enforces those contracts as rules.
+**Authority:** This document governs all AI-assisted coding in this repository. Design docs at the root are authoritative: Backend_System_Architecture.md, MVP_FEATURE_SET.md, MVP_Tracker.md. README.md is informative only; do not assume it is completely correct, verify against the codebase. This file enforces the implementation contracts below.
+
+---
+
+## 0. Operator Quick Start
+
+### 0.1 Read Order (per task)
+1. Task-specific doc(s) provided by the user for the current phase.
+2. Root design docs: Backend_System_Architecture.md, MVP_FEATURE_SET.md, MVP_Tracker.md.
+3. README files are for context only; verify implementation details against the codebase.
+
+### 0.2 Doc Map and Archive Rule
+- Active implementation docs live at the repo root.
+- Archived phase docs live at the repo root and end with `-DOCS` (e.g., `PHASE-B2-DOCS`). Do not use them for implementation unless the user explicitly says so.
+
+### 0.3 Agentic Loops (package.json scripts only)
+- `dev`: `wrangler dev` (root)
+- `deploy`: `wrangler deploy` (root)
+- `type-check`: `tsc -p tsconfig.json --noEmit` (root)
+- `test`: `jest` (root)
+- `test:watch`: `jest --watch` (root)
+- `test:coverage`: `jest --coverage` (root)
+- `verify`: `npm run type-check && npm test` (root)
+- `dev:ui`: `npm --prefix pages run dev` (root; runs `/pages`)
 
 ---
 
@@ -56,7 +79,7 @@ Diff computation must always output deterministic, machine-readable results.
 - `right_value`: unknown
 
 **Invariants:**
-- Diff output must be 100% deterministic (same inputs → same output every time)
+- Diff output must be 100% deterministic (same inputs -> same output every time)
 - No LLM involvement in diff generation
 - Must compile from two SignalEnvelopes
 - Must be validated before persistence
@@ -122,14 +145,14 @@ Workflow: `CompareEnvironments`
 
 **Execution steps (in order):**
 1. Validate inputs and compute `pairKey`
-2. DO: `createComparison(leftUrl, rightUrl)` → `comparisonId`, status = `running`
-3. Probe left URL via ActiveProbeProvider → SignalEnvelope
+2. DO: `createComparison(leftUrl, rightUrl)` -> `comparisonId`, status = `running`
+3. Probe left URL via ActiveProbeProvider -> SignalEnvelope
 4. DO: `saveProbe(comparisonId, "left", envelope)`
-5. Probe right URL via ActiveProbeProvider → SignalEnvelope
+5. Probe right URL via ActiveProbeProvider -> SignalEnvelope
 6. DO: `saveProbe(comparisonId, "right", envelope)`
 7. Compute deterministic `EnvDiff` from two envelopes
 8. DO: Load history snippet (optional, last comparison summary or top findings)
-9. Call Workers AI with `{ diff, history, urls }` → LLM explanation JSON
+9. Call Workers AI with `{ diff, history, urls }` -> LLM explanation JSON
 10. Validate LLM output
 11. DO: `saveResult(comparisonId, resultJson)`, status = `completed`
 12. **On any exception:** DO: `failComparison(comparisonId, errorMessage)`, status = `failed`
@@ -182,11 +205,11 @@ CREATE TABLE probes (
 - Alternative: Use `UNIQUE(comparison_id, side)` constraint with `INSERT OR REPLACE` semantics
 
 **DO methods:**
-- `createComparison(leftUrl, rightUrl) → { comparisonId, status: "running" }`
-- `saveProbe(comparisonId, side, envelope) → void`
-- `saveResult(comparisonId, resultJson) → void` (sets status = "completed")
-- `failComparison(comparisonId, error) → void` (sets status = "failed")
-- `getComparison(comparisonId) → { status, result?, error? }`
+- `createComparison(leftUrl, rightUrl) -> { comparisonId, status: "running" }`
+- `saveProbe(comparisonId, side, envelope) -> void`
+- `saveResult(comparisonId, resultJson) -> void` (sets status = "completed")
+- `failComparison(comparisonId, error) -> void` (sets status = "failed")
+- `getComparison(comparisonId) -> { status, result?, error? }`
 
 **Ring Buffer Retention:**
 - Keep last N comparisons per DO instance (default: 50)
@@ -248,8 +271,8 @@ CREATE TABLE probes (
 **Responsibility:** Collect raw data, normalize to SignalEnvelope.
 
 **Files:**
-- `src/providers/types.ts` — Provider interface
-- `src/providers/activeProbe.ts` — HTTP probe implementation
+- `src/providers/types.ts` - Provider interface
+- `src/providers/activeProbe.ts` - HTTP probe implementation
 
 **Invariants:**
 - No diff logic in providers
@@ -264,11 +287,11 @@ CREATE TABLE probes (
 **Responsibility:** Compare two SignalEnvelopes, produce EnvDiff.
 
 **Files:**
-- `src/analysis/diff.ts` — diff computation
-- `src/analysis/classify.ts` — finding classification
+- `src/analysis/diff.ts` - diff computation
+- `src/analysis/classify.ts` - finding classification
 
 **Invariants:**
-- Pure function: same inputs → identical output every time
+- Pure function: same inputs -> identical output every time
 - No randomness, no timestamps in output
 - No AI/LLM calls
 - Must classify findings into routing/security/cache/timing
@@ -281,8 +304,8 @@ CREATE TABLE probes (
 **Responsibility:** Convert diff + history to structured explanation.
 
 **Files:**
-- `src/llm/explain.ts` — orchestration and JSON validation
-- `src/llm/prompts.ts` — prompt building (update PROMPTS.md after changes)
+- `src/llm/explain.ts` - orchestration and JSON validation
+- `src/llm/prompts.ts` - prompt building (update PROMPTS.md after changes)
 
 **Invariants:**
 - Must receive EnvDiff as input (never raw signals)
@@ -299,7 +322,7 @@ CREATE TABLE probes (
 **Responsibility:** Interact with Durable Objects.
 
 **Files:**
-- `src/storage/envPairDO.ts` — DO methods and SQL
+- `src/storage/envPairDO.ts` - DO methods and SQL
 
 **Invariants:**
 - Single source of truth for comparison state
@@ -311,10 +334,10 @@ CREATE TABLE probes (
 
 ### 3.5 Workflow Orchestration (src/workflows/)
 
-**Responsibility:** Coordinate probe → diff → LLM → persist pipeline.
+**Responsibility:** Coordinate probe -> diff -> LLM -> persist pipeline.
 
 **Files:**
-- `src/workflows/compareEnvironments.ts` — step-by-step workflow
+- `src/workflows/compareEnvironments.ts` - step-by-step workflow
 
 **Invariants:**
 - Workflow is the only place where probes, diff, and LLM are orchestrated
@@ -326,7 +349,7 @@ CREATE TABLE probes (
 
 ## 4. Data Flow Rules
 
-### 4.1 Frontend → Backend
+### 4.1 Frontend -> Backend
 
 **Frontend must never:**
 - Poll Workflow status directly
@@ -342,13 +365,15 @@ CREATE TABLE probes (
 
 ---
 
-### 4.2 Worker → Workflow
+### 4.2 Worker -> Workflow
 
 **Worker must:**
 - Validate input (scheme, format, IP ranges)
 - Compute `pairKey` from URLs
-- Encode `pairKey` in `comparisonId` as prefix: `${pairKey}:${uuid}`
-- Start Workflow with `{ comparisonId, leftUrl, rightUrl, pairKey }`
+- Encode `pairKeyPrefix` (first 40 chars of SHA-256) in `comparisonId` as prefix: `${pairKeyPrefix}-${uuid}`
+  - Workflow IDs limited to 100 chars; full SHA-256 would exceed this (64 + 1 + 36 = 101)
+  - 40-char prefix + 1 + 36 = 77 chars OK
+- Start Workflow with `{ comparisonId, leftUrl, rightUrl, pairKey: pairKeyPrefix }`
 - Return immediately with `{ comparisonId }`
 
 **Worker must not:**
@@ -358,7 +383,7 @@ CREATE TABLE probes (
 
 ---
 
-### 4.3 Workflow → Durable Object
+### 4.3 Workflow -> Durable Object
 
 **Workflow must:**
 - Call DO methods only via step.do()
@@ -373,11 +398,11 @@ CREATE TABLE probes (
 
 ---
 
-### 4.4 Worker → Durable Object (Poll)
+### 4.4 Worker -> Durable Object (Poll)
 
 **Worker must:**
-- Extract `pairKey` from `comparisonId` prefix (before the `:` separator)
-- Obtain the Durable Object stub: `env.ENVPAIR_DO.idFromName(pairKey)` → fetch stub
+- Extract `pairKeyPrefix` from `comparisonId` prefix (40-char SHA-256 prefix before `-uuid`)
+- Obtain the Durable Object stub: `env.ENVPAIR_DO.idFromName(pairKeyPrefix)` -> fetch stub
 - Call stub method: `stub.getComparison(comparisonId)` to fetch authoritative state
 - Return `{ status }` if running
 - Return `{ status, result }` if completed
@@ -385,14 +410,17 @@ CREATE TABLE probes (
 
 **Example (TypeScript):**
 ```typescript
-const pairKey = comparisonId.split(':')[0];
-const stub = env.ENVPAIR_DO.get(env.ENVPAIR_DO.idFromName(pairKey));
+// comparisonId format: ${pairKeyPrefix}-${uuid}
+// pairKeyPrefix is first 40 chars of SHA-256 hex, UUID is 36 chars, separated by hyphen
+// Total: 40 + 1 + 36 = 77 chars (under Workflow ID 100-char limit)
+const pairKeyPrefix = comparisonId.substring(0, comparisonId.length - 37);
+const stub = env.ENVPAIR_DO.get(env.ENVPAIR_DO.idFromName(pairKeyPrefix));
 const state = await stub.getComparison(comparisonId);
 return new Response(JSON.stringify(state), { status: 200 });
 ```
 
 **Invariants:**
-- Worker must use `idFromName(pairKey)` to compute stable DO id (not arbitrary UUIDs)
+- Worker must use `idFromName(pairKeyPrefix)` to compute stable DO id (not arbitrary UUIDs)
 - Worker must fetch a fresh stub on every request (never cache stub references)
 - DO state is the authoritative source; Worker has no local caching of comparison state
 
@@ -472,16 +500,14 @@ const result = await step.do('stepName', async () => {
 
 ### 6.1 Local Development Commands
 
-**Frontend (from `/pages`):**
+**Frontend UI (from repository root, script `dev:ui`):**
 ```bash
-npm install
-npm run dev        # Runs on http://localhost:5173
+npm --prefix pages run dev    # Runs on http://localhost:5173
 ```
 
-**Backend (from repository root):**
+**Backend (from repository root, script `dev`):**
 ```bash
-npm install
-wrangler dev       # Runs on http://localhost:8787
+wrangler dev                  # Runs on http://localhost:8787
 ```
 
 **Frontend `.env` must contain:**
@@ -499,10 +525,10 @@ VITE_API_BASE_URL=http://localhost:8787
 ### 6.2 Directory Ownership
 
 ```
-/pages              — React + Vite UI only
-/src                — Worker + Workflow + Providers + Analysis + LLM + Storage
-/shared             — Shared TypeScript types (used by /pages and /src)
-/migrations         — SQLite migration files
+/pages              - React + Vite UI only
+/src                - Worker + Workflow + Providers + Analysis + LLM + Storage
+/shared             - Shared TypeScript types (used by /pages and /src)
+/migrations         - SQLite migration files
 ```
 
 **Invariants:**
@@ -532,20 +558,13 @@ VITE_API_BASE_URL=http://localhost:8787
 
 ```
 POST /api/compare
-  ↓
-Worker validates + starts Workflow, returns comparisonId
-  ↓
-Workflow creates DO record (status = "running")
-  ↓
-Workflow saves probes to DO
-  ↓
-Workflow computes diff
-  ↓
-Workflow calls LLM
-  ↓
-Workflow saves result + status = "completed"
-  (or status = "failed" on error)
-  ↓
+  -> Worker validates + starts Workflow, returns comparisonId
+  -> Workflow creates DO record (status = "running")
+  -> Workflow saves probes to DO
+  -> Workflow computes diff
+  -> Workflow calls LLM
+  -> Workflow saves result + status = "completed"
+     (or status = "failed" on error)
 GET /api/compare/:comparisonId polls DO until !running
 ```
 
@@ -572,11 +591,11 @@ Before calling LLM:
 ### 8.1 Probe Errors
 
 **Must handle gracefully:**
-- DNS resolution failure → `{ status, error: "DNS error" }`
-- Network timeout (10s) → `{ status, error: "Timeout" }`
-- Redirect loop → `{ status, error: "Redirect loop detected" }`
-- Non-whitelisted headers → Silently skip
-- Missing status code → Fail probe with clear error
+- DNS resolution failure -> `{ status, error: "DNS error" }`
+- Network timeout (10s) -> `{ status, error: "Timeout" }`
+- Redirect loop -> `{ status, error: "Redirect loop detected" }`
+- Non-whitelisted headers -> Silently skip
+- Missing status code -> Fail probe with clear error
 
 ---
 
@@ -757,9 +776,12 @@ LLM may accept additional context fields if:
 ## 14. Required Documentation
 
 **Must maintain:**
-- `PROMPTS.md` — Exact prompts sent to Workers AI (update after every LLM change)
-- This file (`CLAUDE.md`) — Updated when contracts change
-- TypeScript types — All contracts in `/shared`
+- This file (`CLAUDE.md`) - Updated when contracts change
+- TypeScript types - All contracts in `/shared`
+- `tests/README.md` - Update when a new test suite is added or test structure changes
+
+**Planning requirement:**
+- Every feature/implementation plan must include explicit testing steps (tests to add or update, commands to run, expected signals).
 
 **Never:**
 - Invent undocumented behavior
@@ -788,7 +810,7 @@ Before merging any PR:
 - [ ] URL validation rejects private IPs
 - [ ] Redirect algorithm uses redirect: "manual"
 - [ ] PROMPTS.md updated if LLM prompt changed
-- [ ] No new module imports across /pages ↔ /src boundary
+- [ ] No new module imports across /pages <-> /src boundary
 - [ ] Types added to /shared, not duplicated
 
 ---
@@ -800,7 +822,7 @@ Before merging any PR:
 
 ## Changelog
 
-### v1.1 (2026-01-05) — Cloudflare-Specific Refinements
+### v1.1 (2026-01-05) - Cloudflare-Specific Refinements
 - Added explicit idempotency requirements for Workflow steps (section 2.2)
 - Clarified Probe ID format and UNIQUE constraints for idempotency (section 2.3)
 - Added DO stub handling mechanics with example code (section 4.4)
@@ -808,7 +830,7 @@ Before merging any PR:
 - Updated Prohibited Actions to cover DO stub caching and LLM retry bounds
 - Expanded Code Review Checklist with new Cloudflare-specific items
 
-### v1.0 (2026-01-05) — Initial MVP Rulebook
+### v1.0 (2026-01-05) - Initial MVP Rulebook
 - Core contracts (SignalEnvelope, EnvDiff, LLM output)
 - Platform stack (Workers, Workflows, DO, Workers AI)
 - Module boundaries and data flow rules

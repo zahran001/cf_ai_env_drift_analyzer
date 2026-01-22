@@ -1,3 +1,5 @@
+import type { Json } from "./json";
+
 /**
  * Increment only when the stored shape changes in a breaking way.
  */
@@ -150,3 +152,20 @@ export type SignalEnvelope = {
    */
   result: ProbeResult;
 };
+
+/**
+ * FrozenSignalEnvelope: A JSON-serialized SignalEnvelope.
+ *
+ * Used when SignalEnvelope passes through Cloudflare Workflows step.do()
+ * or any other serialization boundary. The type enforces that only JSON-safe
+ * shapes can be used (no methods, Date objects, or other non-serializable types).
+ *
+ * This is a structural type alias; it has no runtime cost and communicates
+ * intent: "this envelope has been serialized and deserialized, so treat it
+ * as its JSON shape only."
+ *
+ * Intersection with Json constrains SignalEnvelope to its JSON-serializable form.
+ * This expresses: "SignalEnvelope, but only its JSON shape"
+
+ */
+export type FrozenSignalEnvelope = SignalEnvelope & Json;
