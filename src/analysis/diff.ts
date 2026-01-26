@@ -13,10 +13,11 @@
  * - Output conforms to EnvDiff schema exactly
  */
 import type { FrozenSignalEnvelope, ProbeSuccess, ProbeResponseError } from "@shared/signal";
-import type { EnvDiff, Change } from "@shared/diff";
+import type { EnvDiff, Change, RedirectDiff } from "@shared/diff";
 import { DIFF_SCHEMA_VERSION, computeMaxSeverity, unchanged, changed } from "@shared/diff";
 import { classify } from "./classify";
 import { compileProbeOutcomeDiff } from "./probeUtils";
+import { chainsAreEqual } from "./redirectUtils";
 
 /**
  * Compute diff from two SignalEnvelopes.
@@ -79,6 +80,27 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
       ? unchanged(leftResponse.finalUrl)
       : changed(leftResponse.finalUrl, rightResponse.finalUrl);
 
+  // Build redirect diff
+  const leftRedirects = (leftEnvelope.result as ProbeSuccess | ProbeResponseError).redirects || [];
+  const rightRedirects = (rightEnvelope.result as ProbeSuccess | ProbeResponseError).redirects || [];
+
+  const redirectDiff: RedirectDiff | undefined =
+    leftRedirects.length > 0 || rightRedirects.length > 0
+      ? {
+          left: leftRedirects,
+          right: rightRedirects,
+          hopCount: {
+            left: leftRedirects.length,
+            right: rightRedirects.length,
+            changed: leftRedirects.length !== rightRedirects.length,
+          },
+          chainChanged: !chainsAreEqual(
+            leftRedirects.map((hop) => hop.toUrl),
+            rightRedirects.map((hop) => hop.toUrl)
+          ),
+        }
+      : undefined;
+
   // Build partial EnvDiff (omit findings initially)
   const partialEnvDiff: Omit<EnvDiff, "findings" | "maxSeverity"> = {
     schemaVersion: DIFF_SCHEMA_VERSION,
@@ -88,6 +110,7 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
     probe: probeOutcomeDiff,
     status: statusDiff,
     finalUrl: finalUrlDiff,
+    redirects: redirectDiff,
   };
 
   // Classify and generate findings

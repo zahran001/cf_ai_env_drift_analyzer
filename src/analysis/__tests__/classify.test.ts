@@ -1,5 +1,6 @@
 import { classify } from "../classify";
 import type { EnvDiff, Change } from "@shared/diff";
+import type { RedirectHop } from "@shared/signal";
 
 const change = <T>(left: T | undefined, right: T | undefined): Change<T> => ({
   left,
@@ -24,6 +25,27 @@ function createBaseDiff(overrides: any = {}): EnvDiff {
     maxSeverity: "info",
     ...overrides,
   } as EnvDiff;
+}
+
+function createEnvDiffWithRedirects(options: {
+  leftRedirects?: RedirectHop[];
+  rightRedirects?: RedirectHop[];
+} = {}): EnvDiff {
+  const leftRedirects = options.leftRedirects || [];
+  const rightRedirects = options.rightRedirects || [];
+
+  return createBaseDiff({
+    redirects: {
+      left: leftRedirects,
+      right: rightRedirects,
+      hopCount: {
+        left: leftRedirects.length,
+        right: rightRedirects.length,
+        changed: leftRedirects.length !== rightRedirects.length,
+      },
+      chainChanged: leftRedirects.some((h, i) => h.toUrl !== rightRedirects[i]?.toUrl),
+    },
+  });
 }
 
 describe("classify", () => {
@@ -232,7 +254,7 @@ describe("classify", () => {
   });
 
   describe("Redirect Chain Changed", () => {
-    it("should emit with critical severity when hopCount differs by >=2", () => {
+    it("should emit with warn severity when hopCount differs by >=2", () => {
       const diff = createBaseDiff({
         redirects: {
           left: [{ toUrl: "http://final.com", status: 301 }],
@@ -248,7 +270,7 @@ describe("classify", () => {
       const findings = classify(diff);
       expect(findings).toHaveLength(1);
       expect(findings[0].code).toBe("REDIRECT_CHAIN_CHANGED");
-      expect(findings[0].severity).toBe("critical");
+      expect(findings[0].severity).toBe("warn");
     });
   });
 
@@ -593,6 +615,68 @@ describe("classify", () => {
       expect(codes).toContain("STATUS_MISMATCH");
       expect(codes).toContain("FINAL_URL_MISMATCH");
       expect(codes).toContain("TIMING_DRIFT");
+    });
+  });
+
+  describe("Redirect Chain Drift", () => {
+    it("should emit REDIRECT_CHAIN_CHANGED with warn severity when hopCount differs by 1", () => {
+      const diff = createEnvDiffWithRedirects({
+        leftRedirects: [
+          { fromUrl: "http://example.com", toUrl: "http://example.com/final", status: 301 },
+        ],
+        rightRedirects: [
+          { fromUrl: "http://example.com", toUrl: "http://example.com/mid", status: 301 },
+          { fromUrl: "http://example.com/mid", toUrl: "http://example.com/final", status: 302 },
+        ],
+      });
+
+      const findings = classify(diff);
+
+      const redirectFinding = findings.find((f) => f.code === "REDIRECT_CHAIN_CHANGED");
+      expect(redirectFinding).toBeDefined();
+      expect(redirectFinding?.severity).toBe("warn");
+      expect(redirectFinding?.category).toBe("routing");
+      expect(redirectFinding?.message).toBe("Redirect chain differs");
+    });
+
+    it("should emit REDIRECT_CHAIN_CHANGED with warn severity when hopCount differs by 2+", () => {
+      const diff = createEnvDiffWithRedirects({
+        leftRedirects: [
+          { fromUrl: "http://example.com", toUrl: "http://example.com/final", status: 301 },
+        ],
+        rightRedirects: [
+          { fromUrl: "http://example.com", toUrl: "http://example.com/a", status: 301 },
+          { fromUrl: "http://example.com/a", toUrl: "http://example.com/b", status: 302 },
+          { fromUrl: "http://example.com/b", toUrl: "http://example.com/final", status: 302 },
+        ],
+      });
+
+      const findings = classify(diff);
+
+      const redirectFinding = findings.find((f) => f.code === "REDIRECT_CHAIN_CHANGED");
+      expect(redirectFinding).toBeDefined();
+      expect(redirectFinding?.severity).toBe("warn");
+      expect(redirectFinding?.category).toBe("routing");
+      expect(redirectFinding?.message).toBe("Redirect chain differs");
+    });
+
+    it("should emit REDIRECT_CHAIN_CHANGED with critical severity when final host differs", () => {
+      const diff = createEnvDiffWithRedirects({
+        leftRedirects: [
+          { fromUrl: "http://example.com", toUrl: "http://left-cdn.com/final", status: 301 },
+        ],
+        rightRedirects: [
+          { fromUrl: "http://example.com", toUrl: "http://right-cdn.com/final", status: 301 },
+        ],
+      });
+
+      const findings = classify(diff);
+
+      const redirectFinding = findings.find((f) => f.code === "REDIRECT_CHAIN_CHANGED");
+      expect(redirectFinding).toBeDefined();
+      expect(redirectFinding?.severity).toBe("critical");
+      expect(redirectFinding?.category).toBe("routing");
+      expect(redirectFinding?.message).toBe("Redirect chain differs");
     });
   });
 });

@@ -165,8 +165,10 @@ evidence: [
 
 ### B3) Redirect Chain Changed → `REDIRECT_CHAIN_CHANGED`
 
-- `warn` by default
-- `critical` if hop count differs by ≥ 2 or final host differs
+**Severity Rules (MVP outcome-focused):**
+- `info` if no changes
+- `warn` if hop count differs (any amount) — infrastructure observation
+- `critical` only if final host differs — outcome change (user lands on different domain)
 
 ---
 

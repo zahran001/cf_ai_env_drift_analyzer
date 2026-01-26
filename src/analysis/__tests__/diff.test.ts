@@ -410,4 +410,90 @@ describe("computeDiff", () => {
       expect(diff.probe.rightErrorCode).toBeUndefined();
     });
   });
+
+  describe("Redirect Chain Diff Computation", () => {
+    it("should compute redirectDiff when redirect chains differ in hop count", () => {
+      const left = createSuccessEnvelope({
+        probeId: "left-probe",
+        side: "left",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "http://httpbin.org/get",
+            headers: { core: { "content-type": "application/json" } },
+          },
+          redirects: [
+            { fromUrl: "http://httpbin.org/redirect/1", toUrl: "http://httpbin.org/get", status: 302 },
+          ],
+          durationMs: 100,
+        },
+      });
+
+      const right = createSuccessEnvelope({
+        probeId: "right-probe",
+        side: "right",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "http://httpbin.org/get",
+            headers: { core: { "content-type": "application/json" } },
+          },
+          redirects: [
+            { fromUrl: "http://httpbin.org/redirect/3", toUrl: "http://httpbin.org/redirect/2", status: 302 },
+            { fromUrl: "http://httpbin.org/redirect/2", toUrl: "http://httpbin.org/redirect/1", status: 302 },
+            { fromUrl: "http://httpbin.org/redirect/1", toUrl: "http://httpbin.org/get", status: 302 },
+          ],
+          durationMs: 150,
+        },
+      });
+
+      const diff = computeDiff(left, right);
+
+      expect(diff.redirects).toBeDefined();
+      expect(diff.redirects?.hopCount.changed).toBe(true);
+      expect(diff.redirects?.hopCount.left).toBe(1);
+      expect(diff.redirects?.hopCount.right).toBe(3);
+      expect(diff.redirects?.chainChanged).toBe(true);
+      expect(diff.redirects?.left).toHaveLength(1);
+      expect(diff.redirects?.right).toHaveLength(3);
+    });
+
+    it("should not populate redirectDiff when neither side has redirects", () => {
+      const left = createSuccessEnvelope({ probeId: "left-probe", side: "left" });
+      const right = createSuccessEnvelope({ probeId: "right-probe", side: "right" });
+
+      const diff = computeDiff(left, right);
+
+      expect(diff.redirects).toBeUndefined();
+    });
+
+    it("should populate redirectDiff when only one side has redirects", () => {
+      const left = createSuccessEnvelope({ probeId: "left-probe", side: "left" });
+      const right = createSuccessEnvelope({
+        probeId: "right-probe",
+        side: "right",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "http://example.com/final",
+            headers: { core: { "content-type": "text/html" } },
+          },
+          redirects: [
+            { fromUrl: "http://example.com", toUrl: "http://example.com/final", status: 301 },
+          ],
+          durationMs: 120,
+        },
+      });
+
+      const diff = computeDiff(left, right);
+
+      expect(diff.redirects).toBeDefined();
+      expect(diff.redirects?.hopCount.changed).toBe(true);
+      expect(diff.redirects?.hopCount.left).toBe(0);
+      expect(diff.redirects?.hopCount.right).toBe(1);
+    });
+  });
 });

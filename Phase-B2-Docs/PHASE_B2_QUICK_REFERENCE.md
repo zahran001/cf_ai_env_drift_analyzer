@@ -233,12 +233,12 @@ sortFindings(findings) {
 
 ---
 
-## Redirect Chain Severity Logic
+## Redirect Chain Severity Logic (MVP Outcome-Focused)
 
 ```
-hopCount delta ≥ 2           → critical
-final host differs           → critical
-else (chain structurally different) → warn
+No change                    → info
+Hop count differs (any)      → warn    (infrastructure observation)
+Final host differs           → critical (outcome change: user lands elsewhere)
 ```
 
 ---
