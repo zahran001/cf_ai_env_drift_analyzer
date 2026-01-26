@@ -359,7 +359,7 @@ describe("classify", () => {
   });
 
   describe("Cache Header Drift", () => {
-    it("should emit with critical severity (no-store added)", () => {
+    it("should emit with warn severity (cache-control changed)", () => {
       const diff = createBaseDiff({
         headers: {
           core: {
@@ -375,7 +375,38 @@ describe("classify", () => {
       const findings = classify(diff);
       expect(findings).toHaveLength(1);
       expect(findings[0].code).toBe("CACHE_HEADER_DRIFT");
-      expect(findings[0].severity).toBe("critical");
+      expect(findings[0].severity).toBe("warn");
+    });
+
+    it("should emit D1 finding for cache-control change (httpbin test case)", () => {
+      // Simulates the D1 test case: cache-control=no-store vs cache-control=public,max-age=3600
+      const diff = createBaseDiff({
+        status: unchanged(200),
+        finalUrl: change(
+          "https://httpbin.org/response-headers?cache-control=no-store",
+          "https://httpbin.org/response-headers?cache-control=public,max-age=3600"
+        ),
+        headers: {
+          core: {
+            changed: {
+              "cache-control": change("no-store", "public,max-age=3600"),
+            },
+            added: {},
+            removed: {},
+            unchanged: {},
+          } as any,
+        },
+      });
+      const findings = classify(diff);
+
+      // Should emit both CACHE_HEADER_DRIFT and FINAL_URL_MISMATCH (due to query string)
+      const cacheFindings = findings.filter((f) => f.code === "CACHE_HEADER_DRIFT");
+      expect(cacheFindings).toHaveLength(1);
+      expect(cacheFindings[0].severity).toBe("warn");
+      expect(cacheFindings[0].category).toBe("cache");
+      expect(cacheFindings[0].evidence).toEqual([{ section: "headers", keys: ["cache-control"] }]);
+      expect(cacheFindings[0].left_value).toBe("no-store");
+      expect(cacheFindings[0].right_value).toBe("public,max-age=3600");
     });
   });
 

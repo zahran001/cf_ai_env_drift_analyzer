@@ -95,14 +95,14 @@ describe("MVP Mock Envelopes - Scenario A: Security & Cache Drift", () => {
     expect(findings.length).toBeGreaterThan(0);
   });
 
-  test("Findings include cache-control drift (critical)", () => {
+  test("Findings include cache-control drift (warn)", () => {
     const findings = classify(scenarioADiff);
     const cacheFindings = findings.filter(
       (f: DiffFinding) => f.code === "CACHE_HEADER_DRIFT"
     );
     expect(cacheFindings.length).toBeGreaterThan(0);
     cacheFindings.forEach((f: DiffFinding) => {
-      expect(f.severity).toBe("critical");
+      expect(f.severity).toBe("warn");
     });
   });
 

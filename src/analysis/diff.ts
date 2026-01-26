@@ -13,7 +13,7 @@
  * - Output conforms to EnvDiff schema exactly
  */
 import type { FrozenSignalEnvelope, ProbeSuccess, ProbeResponseError } from "@shared/signal";
-import type { EnvDiff, Change, RedirectDiff } from "@shared/diff";
+import type { EnvDiff, Change, RedirectDiff, HeaderDiff } from "@shared/diff";
 import { DIFF_SCHEMA_VERSION, computeMaxSeverity, unchanged, changed } from "@shared/diff";
 import { classify } from "./classify";
 import { compileProbeOutcomeDiff } from "./probeUtils";
@@ -101,6 +101,59 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
         }
       : undefined;
 
+  // Build header diff
+  const leftHeaders = leftResponse.headers;
+  const rightHeaders = rightResponse.headers;
+
+  const computeHeaderDiff = (
+    leftHeaders: typeof leftResponse.headers,
+    rightHeaders: typeof rightResponse.headers
+  ): HeaderDiff<string> => {
+    const added: Record<string, string> = {};
+    const removed: Record<string, string> = {};
+    const changedHeaders: Record<string, Change<string>> = {};
+    const unchangedHeaders: Record<string, string> = {};
+
+    const allKeys = new Set<string>();
+
+    // Collect all header keys from both sides
+    if (leftHeaders.core) {
+      Object.keys(leftHeaders.core).forEach((k) => allKeys.add(k));
+    }
+    if (rightHeaders.core) {
+      Object.keys(rightHeaders.core).forEach((k) => allKeys.add(k));
+    }
+
+    for (const key of allKeys) {
+      const leftVal = leftHeaders.core?.[key as keyof typeof leftHeaders.core];
+      const rightVal = rightHeaders.core?.[key as keyof typeof rightHeaders.core];
+
+      if (leftVal === undefined && rightVal !== undefined) {
+        added[key] = rightVal;
+      } else if (leftVal !== undefined && rightVal === undefined) {
+        removed[key] = leftVal;
+      } else if (leftVal !== rightVal) {
+        changedHeaders[key] = changed(leftVal!, rightVal!);
+      } else {
+        unchangedHeaders[key] = leftVal!;
+      }
+    }
+
+    return { added, removed, changed: changedHeaders, unchanged: unchangedHeaders };
+  };
+
+  const headerDiffCore = computeHeaderDiff(leftHeaders, rightHeaders);
+
+  const headerDiff =
+    Object.keys(headerDiffCore.added).length > 0 ||
+    Object.keys(headerDiffCore.removed).length > 0 ||
+    Object.keys(headerDiffCore.changed).length > 0
+      ? {
+          core: headerDiffCore,
+          accessControl: leftHeaders.accessControl || rightHeaders.accessControl ? { added: {}, removed: {}, changed: {}, unchanged: {} } : undefined,
+        }
+      : undefined;
+
   // Build partial EnvDiff (omit findings initially)
   const partialEnvDiff: Omit<EnvDiff, "findings" | "maxSeverity"> = {
     schemaVersion: DIFF_SCHEMA_VERSION,
@@ -111,6 +164,7 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
     status: statusDiff,
     finalUrl: finalUrlDiff,
     redirects: redirectDiff,
+    headers: headerDiff,
   };
 
   // Classify and generate findings
