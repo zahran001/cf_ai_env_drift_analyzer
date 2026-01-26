@@ -45,13 +45,26 @@ export function classifyUrlDrift(
   if (leftUrl.path !== rightUrl.path) diffTypes.push("path");
   if (leftUrl.query !== rightUrl.query) diffTypes.push("query");
 
-  // Severity: critical if scheme or host differs, warn if path/query
-  const severity =
-    diffTypes.includes("scheme") || diffTypes.includes("host")
-      ? "critical"
-      : diffTypes.length > 0
-      ? "warn"
-      : "info";
+  // Determine severity based on minimal policy (symmetrical, no baseline)
+  // Per SEVERITY_POLICY_A2.md: penalize host changes heavily, scheme-only benignly
+  let severity: Severity;
+
+  if (diffTypes.length === 0) {
+    // No differences
+    severity = "info";
+  } else if (diffTypes.includes("host")) {
+    // Host differs → different server/service (critical)
+    severity = "critical";
+  } else if (diffTypes.includes("scheme") && diffTypes.length === 1) {
+    // ONLY scheme differs → often benign (HTTP→HTTPS redirect)
+    severity = "info";
+  } else if (diffTypes.includes("path") || diffTypes.includes("query")) {
+    // Path/query differs (not host) → same destination, different resource
+    severity = "warn";
+  } else {
+    // Fallback for edge cases (e.g., scheme + path/query but not host)
+    severity = "warn";
+  }
 
   return { severity, diffTypes };
 }

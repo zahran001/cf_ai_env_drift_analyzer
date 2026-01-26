@@ -214,12 +214,12 @@ describe("classify", () => {
       expect(findings[0].severity).toBe("critical");
     });
 
-    it("should emit with critical severity (scheme differs)", () => {
+    it("should emit with info severity (scheme differs only)", () => {
       const diff = createBaseDiff({
         finalUrl: change("http://example.com", "https://example.com"),
       });
       const findings = classify(diff);
-      expect(findings[0].severity).toBe("critical");
+      expect(findings[0].severity).toBe("info");
     });
 
     it("should emit with warn severity (path differs)", () => {
