@@ -9,9 +9,9 @@ import type { EnvDiff, Change, DiffFinding, TimingDiff } from "@shared/diff";
  *
  * Scenario A: "Security & Cache" Drift
  * - Status: 200 (unchanged)
- * - cache-control: public → no-store (critical due to no-store keyword)
- * - access-control-allow-origin: absent → * (critical CORS drift)
- * - Expected: CACHE_HEADER_DRIFT (critical), CORS_HEADER_DRIFT (critical)
+ * - cache-control: public → no-store (warn severity)
+ * - access-control-allow-origin: absent → * (warn CORS drift per Phase-B4)
+ * - Expected: CACHE_HEADER_DRIFT (warn), CORS_HEADER_DRIFT (warn)
  *
  * Scenario B: "Routing & Timing" Drift
  * - Status: 200 (unchanged)
@@ -106,14 +106,14 @@ describe("MVP Mock Envelopes - Scenario A: Security & Cache Drift", () => {
     });
   });
 
-  test("Findings include CORS header drift (critical)", () => {
+  test("Findings include CORS header drift (warn)", () => {
     const findings = classify(scenarioADiff);
     const corsFindings = findings.filter(
       (f: DiffFinding) => f.code === "CORS_HEADER_DRIFT"
     );
     expect(corsFindings.length).toBeGreaterThan(0);
     corsFindings.forEach((f: DiffFinding) => {
-      expect(f.severity).toBe("critical");
+      expect(f.severity).toBe("warn");
     });
   });
 
@@ -123,12 +123,11 @@ describe("MVP Mock Envelopes - Scenario A: Security & Cache Drift", () => {
     expect(JSON.stringify(findings1)).toBe(JSON.stringify(findings2));
   });
 
-  test("maxSeverity across findings includes critical", () => {
+  test("maxSeverity across findings includes warn", () => {
     const findings = classify(scenarioADiff);
-    const hasCritical = findings.some(
-      (f: DiffFinding) => f.severity === "critical"
-    );
-    expect(hasCritical).toBe(true);
+    const maxSev = Math.max(...findings.map(f => (["info", "warn", "critical"].indexOf(f.severity))));
+    const severityNames = ["info", "warn", "critical"];
+    expect(severityNames[maxSev]).toBe("warn");
   });
 });
 

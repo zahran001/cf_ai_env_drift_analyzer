@@ -311,7 +311,7 @@ describe("classify", () => {
   });
 
   describe("CORS Header Drift", () => {
-    it("should emit with critical severity (allow-origin differs)", () => {
+    it("should emit with warn severity (allow-origin differs)", () => {
       const diff = createBaseDiff({
         headers: {
           core: {
@@ -333,7 +333,7 @@ describe("classify", () => {
       const findings = classify(diff);
       expect(findings).toHaveLength(1);
       expect(findings[0].code).toBe("CORS_HEADER_DRIFT");
-      expect(findings[0].severity).toBe("critical");
+      expect(findings[0].severity).toBe("warn");
     });
 
     it("should emit with warn severity (other access-control headers)", () => {
