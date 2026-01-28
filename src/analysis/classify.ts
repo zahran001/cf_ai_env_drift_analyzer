@@ -358,8 +358,9 @@ export function classify(diff: EnvDiff): DiffFinding[] {
   console.log(`[classify] C2: corsHeaders detected:`, corsHeaders);
   console.log(`[classify] C2: diff.headers:`, JSON.stringify(diff.headers));
   if (corsHeaders.length > 0) {
-    const hasAllowOriginDiff = corsHeaders.some((h) => h === "access-control-allow-origin");
-    const severity: Severity = hasAllowOriginDiff ? "critical" : "warn";
+    // CORS header drift = warn (policy-level change, not outcome-level)
+    // Evidence preserves header names so LLM can still prioritize
+    const severity: Severity = "warn";
     const evidence: DiffEvidence[] = [{ section: "headers", keys: corsHeaders }];
 
     console.log(`[classify] C2: CORS_HEADER_DRIFT emitted - severity=${severity}, headers=${corsHeaders.join(",")}`);
