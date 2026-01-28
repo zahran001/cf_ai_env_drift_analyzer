@@ -33,13 +33,18 @@ function generateFindingId(code: string, section?: string, keys?: string[]): str
  */
 function getAccessControlHeaderDiffs(diff: EnvDiff): string[] {
   const acHeaders = diff.headers?.accessControl;
-  if (!acHeaders) return [];
+  console.log(`[getAccessControlHeaderDiffs] acHeaders:`, JSON.stringify(acHeaders));
+  if (!acHeaders) {
+    console.log(`[getAccessControlHeaderDiffs] No accessControl headers in diff`);
+    return [];
+  }
 
   const differing = new Set<string>();
   Object.keys(acHeaders.added || {}).forEach((k) => differing.add(k));
   Object.keys(acHeaders.removed || {}).forEach((k) => differing.add(k));
   Object.keys(acHeaders.changed || {}).forEach((k) => differing.add(k));
 
+  console.log(`[getAccessControlHeaderDiffs] Differing headers:`, Array.from(differing).sort());
   return Array.from(differing).sort();
 }
 
@@ -350,10 +355,14 @@ export function classify(diff: EnvDiff): DiffFinding[] {
   }
 
   const corsHeaders = getAccessControlHeaderDiffs(diff);
+  console.log(`[classify] C2: corsHeaders detected:`, corsHeaders);
+  console.log(`[classify] C2: diff.headers:`, JSON.stringify(diff.headers));
   if (corsHeaders.length > 0) {
     const hasAllowOriginDiff = corsHeaders.some((h) => h === "access-control-allow-origin");
     const severity: Severity = hasAllowOriginDiff ? "critical" : "warn";
     const evidence: DiffEvidence[] = [{ section: "headers", keys: corsHeaders }];
+
+    console.log(`[classify] C2: CORS_HEADER_DRIFT emitted - severity=${severity}, headers=${corsHeaders.join(",")}`);
 
     findings.push({
       id: generateFindingId("CORS_HEADER_DRIFT", "headers", corsHeaders),
@@ -365,6 +374,8 @@ export function classify(diff: EnvDiff): DiffFinding[] {
       left_value: { corsHeaders },
       right_value: { corsHeaders },
     });
+  } else {
+    console.log(`[classify] C2: No CORS headers found`);
   }
 
   // ========== RULE GROUP D: CACHE & CONTENT RULES ==========

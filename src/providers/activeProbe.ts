@@ -465,6 +465,11 @@ export class ActiveProbeProvider implements ISignalProvider {
 
     const headerSnapshot = filterHeaders(headers);
 
+    console.log(`[ActiveProbe] URL: ${url}`);
+    console.log(`[ActiveProbe] Status: ${status}`);
+    console.log(`[ActiveProbe] Headers captured - core:`, JSON.stringify(headerSnapshot.core));
+    console.log(`[ActiveProbe] Headers captured - accessControl:`, JSON.stringify(headerSnapshot.accessControl));
+
     const response: ResponseMetadata = {
       status,
       finalUrl,

@@ -105,10 +105,11 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
   const leftHeaders = leftResponse.headers;
   const rightHeaders = rightResponse.headers;
 
-  const computeHeaderDiff = (
-    leftHeaders: typeof leftResponse.headers,
-    rightHeaders: typeof rightResponse.headers
-  ): HeaderDiff<string> => {
+  /**
+   * Compute diff for core headers only.
+   * Iterates over whitelisted core header keys.
+   */
+  const computeCoreHeaderDiff = (): HeaderDiff<string> => {
     const added: Record<string, string> = {};
     const removed: Record<string, string> = {};
     const changedHeaders: Record<string, Change<string>> = {};
@@ -116,7 +117,7 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
 
     const allKeys = new Set<string>();
 
-    // Collect all header keys from both sides
+    // Collect all keys from CORE headers
     if (leftHeaders.core) {
       Object.keys(leftHeaders.core).forEach((k) => allKeys.add(k));
     }
@@ -124,6 +125,7 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
       Object.keys(rightHeaders.core).forEach((k) => allKeys.add(k));
     }
 
+    // Classify each key
     for (const key of allKeys) {
       const leftVal = leftHeaders.core?.[key as keyof typeof leftHeaders.core];
       const rightVal = rightHeaders.core?.[key as keyof typeof rightHeaders.core];
@@ -142,17 +144,86 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
     return { added, removed, changed: changedHeaders, unchanged: unchangedHeaders };
   };
 
-  const headerDiffCore = computeHeaderDiff(leftHeaders, rightHeaders);
+  /**
+   * Compute diff for access-control-* headers only.
+   * Returns undefined if neither side has access-control headers.
+   */
+  const computeAccessControlHeaderDiff = (): HeaderDiff<string> | undefined => {
+    // Early exit if neither side has access-control headers
+    if (!leftHeaders.accessControl && !rightHeaders.accessControl) {
+      return undefined;
+    }
 
-  const headerDiff =
-    Object.keys(headerDiffCore.added).length > 0 ||
-    Object.keys(headerDiffCore.removed).length > 0 ||
-    Object.keys(headerDiffCore.changed).length > 0
+    const added: Record<string, string> = {};
+    const removed: Record<string, string> = {};
+    const changedHeaders: Record<string, Change<string>> = {};
+    const unchangedHeaders: Record<string, string> = {};
+
+    const allKeys = new Set<string>();
+
+    // Collect all keys from ACCESS-CONTROL headers
+    if (leftHeaders.accessControl) {
+      Object.keys(leftHeaders.accessControl).forEach((k) => allKeys.add(k));
+    }
+    if (rightHeaders.accessControl) {
+      Object.keys(rightHeaders.accessControl).forEach((k) => allKeys.add(k));
+    }
+
+    // Classify each key
+    for (const key of allKeys) {
+      const leftVal = leftHeaders.accessControl?.[key];
+      const rightVal = rightHeaders.accessControl?.[key];
+
+      if (leftVal === undefined && rightVal !== undefined) {
+        added[key] = rightVal;
+      } else if (leftVal !== undefined && rightVal === undefined) {
+        removed[key] = leftVal;
+      } else if (leftVal !== rightVal) {
+        changedHeaders[key] = changed(leftVal!, rightVal!);
+      } else {
+        unchangedHeaders[key] = leftVal!;
+      }
+    }
+
+    // Return undefined if no changes detected (optimization)
+    const hasChanges =
+      Object.keys(added).length > 0 ||
+      Object.keys(removed).length > 0 ||
+      Object.keys(changedHeaders).length > 0;
+
+    return hasChanges
       ? {
-          core: headerDiffCore,
-          accessControl: leftHeaders.accessControl || rightHeaders.accessControl ? { added: {}, removed: {}, changed: {}, unchanged: {} } : undefined,
+          added,
+          removed,
+          changed: changedHeaders,
+          unchanged: unchangedHeaders,
         }
       : undefined;
+  };
+
+  // Compute both core and accessControl diffs
+  const coreHeaderDiff = computeCoreHeaderDiff();
+  const accessControlHeaderDiff = computeAccessControlHeaderDiff();
+
+  // Debug logging
+  console.log(`[computeDiff] LEFT headers.accessControl:`, JSON.stringify(leftHeaders.accessControl));
+  console.log(`[computeDiff] RIGHT headers.accessControl:`, JSON.stringify(rightHeaders.accessControl));
+  console.log(`[computeDiff] coreHeaderDiff.changed:`, JSON.stringify(coreHeaderDiff.changed));
+  console.log(`[computeDiff] accessControlHeaderDiff:`, JSON.stringify(accessControlHeaderDiff));
+
+  // Only include headers section if either group has changes
+  const headerDiff =
+    Object.keys(coreHeaderDiff.added).length > 0 ||
+    Object.keys(coreHeaderDiff.removed).length > 0 ||
+    Object.keys(coreHeaderDiff.changed).length > 0 ||
+    accessControlHeaderDiff
+      ? {
+          core: coreHeaderDiff,
+          accessControl: accessControlHeaderDiff,
+        }
+      : undefined;
+
+  console.log(`[computeDiff] Final headerDiff:`, JSON.stringify(headerDiff));
 
   // Build partial EnvDiff (omit findings initially)
   const partialEnvDiff: Omit<EnvDiff, "findings" | "maxSeverity"> = {
@@ -169,6 +240,7 @@ export function computeDiff(leftEnvelope: FrozenSignalEnvelope, rightEnvelope: F
 
   // Classify and generate findings
   const findings = classify(partialEnvDiff as EnvDiff);
+  console.log(`[computeDiff] Generated ${findings.length} findings:`, findings.map(f => f.code).join(", "));
   const maxSeverity = computeMaxSeverity(findings);
 
   // Return complete diff with findings
