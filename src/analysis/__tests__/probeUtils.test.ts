@@ -1,5 +1,5 @@
 // src/analysis/__tests__/probeUtils.test.ts
-import { compileProbeOutcomeDiff } from "../probeUtils";
+import { compileProbeOutcomeDiff, isNetworkFailure } from "../probeUtils";
 import type { SignalEnvelope } from "@shared/diff";
 import { SIGNAL_SCHEMA_VERSION } from "@shared/signal";
 
@@ -182,5 +182,77 @@ describe("probeUtils", () => {
       outcomeChanged: false,
       responsePresent: true,
     });
+  });
+});
+
+describe("isNetworkFailure", () => {
+  it("should detect network failure when error code present and responsePresent=false", () => {
+    const probe = {
+      leftOk: false,
+      rightOk: true,
+      leftErrorCode: "dns_error",
+      rightErrorCode: undefined,
+      outcomeChanged: true,
+      responsePresent: false,
+    };
+
+    expect(isNetworkFailure(probe, "left")).toBe(true);
+    expect(isNetworkFailure(probe, "right")).toBe(false);
+  });
+
+  it("should not detect network failure when HTTP error response (error code undefined)", () => {
+    const probe = {
+      leftOk: false,
+      rightOk: true,
+      leftErrorCode: undefined, // No error code for HTTP error response
+      rightErrorCode: undefined,
+      outcomeChanged: true,
+      responsePresent: true, // Both have responses
+    };
+
+    expect(isNetworkFailure(probe, "left")).toBe(false);
+    expect(isNetworkFailure(probe, "right")).toBe(false);
+  });
+
+  it("should not detect network failure when responsePresent=true (both have responses)", () => {
+    const probe = {
+      leftOk: false,
+      rightOk: true,
+      leftErrorCode: "timeout", // Error code present but...
+      rightErrorCode: undefined,
+      outcomeChanged: true,
+      responsePresent: true, // ...both have responses (should be HTTP error)
+    };
+
+    // Even with error code, if responsePresent is true, not a network failure
+    expect(isNetworkFailure(probe, "left")).toBe(false);
+  });
+
+  it("should detect network failure on right side", () => {
+    const probe = {
+      leftOk: true,
+      rightOk: false,
+      leftErrorCode: undefined,
+      rightErrorCode: "tls_error",
+      outcomeChanged: true,
+      responsePresent: false,
+    };
+
+    expect(isNetworkFailure(probe, "left")).toBe(false);
+    expect(isNetworkFailure(probe, "right")).toBe(true);
+  });
+
+  it("should detect both network failures", () => {
+    const probe = {
+      leftOk: false,
+      rightOk: false,
+      leftErrorCode: "dns_error",
+      rightErrorCode: "timeout",
+      outcomeChanged: false,
+      responsePresent: false,
+    };
+
+    expect(isNetworkFailure(probe, "left")).toBe(true);
+    expect(isNetworkFailure(probe, "right")).toBe(true);
   });
 });

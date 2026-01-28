@@ -410,4 +410,200 @@ describe("computeDiff", () => {
       expect(diff.probe.rightErrorCode).toBeUndefined();
     });
   });
+
+  describe("Redirect Chain Diff Computation", () => {
+    it("should compute redirectDiff when redirect chains differ in hop count", () => {
+      const left = createSuccessEnvelope({
+        probeId: "left-probe",
+        side: "left",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "http://httpbin.org/get",
+            headers: { core: { "content-type": "application/json" } },
+          },
+          redirects: [
+            { fromUrl: "http://httpbin.org/redirect/1", toUrl: "http://httpbin.org/get", status: 302 },
+          ],
+          durationMs: 100,
+        },
+      });
+
+      const right = createSuccessEnvelope({
+        probeId: "right-probe",
+        side: "right",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "http://httpbin.org/get",
+            headers: { core: { "content-type": "application/json" } },
+          },
+          redirects: [
+            { fromUrl: "http://httpbin.org/redirect/3", toUrl: "http://httpbin.org/redirect/2", status: 302 },
+            { fromUrl: "http://httpbin.org/redirect/2", toUrl: "http://httpbin.org/redirect/1", status: 302 },
+            { fromUrl: "http://httpbin.org/redirect/1", toUrl: "http://httpbin.org/get", status: 302 },
+          ],
+          durationMs: 150,
+        },
+      });
+
+      const diff = computeDiff(left, right);
+
+      expect(diff.redirects).toBeDefined();
+      expect(diff.redirects?.hopCount.changed).toBe(true);
+      expect(diff.redirects?.hopCount.left).toBe(1);
+      expect(diff.redirects?.hopCount.right).toBe(3);
+      expect(diff.redirects?.chainChanged).toBe(true);
+      expect(diff.redirects?.left).toHaveLength(1);
+      expect(diff.redirects?.right).toHaveLength(3);
+    });
+
+    it("should not populate redirectDiff when neither side has redirects", () => {
+      const left = createSuccessEnvelope({ probeId: "left-probe", side: "left" });
+      const right = createSuccessEnvelope({ probeId: "right-probe", side: "right" });
+
+      const diff = computeDiff(left, right);
+
+      expect(diff.redirects).toBeUndefined();
+    });
+
+    it("should populate redirectDiff when only one side has redirects", () => {
+      const left = createSuccessEnvelope({ probeId: "left-probe", side: "left" });
+      const right = createSuccessEnvelope({
+        probeId: "right-probe",
+        side: "right",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "http://example.com/final",
+            headers: { core: { "content-type": "text/html" } },
+          },
+          redirects: [
+            { fromUrl: "http://example.com", toUrl: "http://example.com/final", status: 301 },
+          ],
+          durationMs: 120,
+        },
+      });
+
+      const diff = computeDiff(left, right);
+
+      expect(diff.redirects).toBeDefined();
+      expect(diff.redirects?.hopCount.changed).toBe(true);
+      expect(diff.redirects?.hopCount.left).toBe(0);
+      expect(diff.redirects?.hopCount.right).toBe(1);
+    });
+  });
+
+  describe("Header Diff Computation (D1 Cache Detection)", () => {
+    it("should compute headerDiff when cache-control differs (D1 test case)", () => {
+      const left = createSuccessEnvelope({
+        probeId: "left-probe",
+        side: "left",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "https://httpbin.org/response-headers?cache-control=no-store",
+            headers: { core: { "cache-control": "no-store" } },
+          },
+          durationMs: 100,
+        },
+      });
+
+      const right = createSuccessEnvelope({
+        probeId: "right-probe",
+        side: "right",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "https://httpbin.org/response-headers?cache-control=public,max-age=3600",
+            headers: { core: { "cache-control": "public,max-age=3600" } },
+          },
+          durationMs: 110,
+        },
+      });
+
+      const diff = computeDiff(left, right);
+
+      expect(diff.headers).toBeDefined();
+      expect(diff.headers?.core.changed).toBeDefined();
+      expect(diff.headers?.core.changed?.["cache-control"]).toBeDefined();
+      expect(diff.headers?.core.changed?.["cache-control"]?.left).toBe("no-store");
+      expect(diff.headers?.core.changed?.["cache-control"]?.right).toBe("public,max-age=3600");
+    });
+
+    it("should not populate headerDiff when headers are identical", () => {
+      const left = createSuccessEnvelope({
+        probeId: "left-probe",
+        side: "left",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "https://example.com",
+            headers: { core: { "cache-control": "max-age=3600" } },
+          },
+          durationMs: 100,
+        },
+      });
+
+      const right = createSuccessEnvelope({
+        probeId: "right-probe",
+        side: "right",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "https://example.com",
+            headers: { core: { "cache-control": "max-age=3600" } },
+          },
+          durationMs: 100,
+        },
+      });
+
+      const diff = computeDiff(left, right);
+
+      expect(diff.headers).toBeUndefined();
+    });
+
+    it("should detect added and removed headers", () => {
+      const left = createSuccessEnvelope({
+        probeId: "left-probe",
+        side: "left",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "https://example.com",
+            headers: { core: {} },
+          },
+          durationMs: 100,
+        },
+      });
+
+      const right = createSuccessEnvelope({
+        probeId: "right-probe",
+        side: "right",
+        result: {
+          ok: true,
+          response: {
+            status: 200,
+            finalUrl: "https://example.com",
+            headers: { core: { "cache-control": "public,max-age=86400" } },
+          },
+          durationMs: 100,
+        },
+      });
+
+      const diff = computeDiff(left, right);
+
+      expect(diff.headers).toBeDefined();
+      expect(diff.headers?.core.added).toBeDefined();
+      expect(diff.headers?.core.added?.["cache-control"]).toBe("public,max-age=86400");
+    });
+  });
 });

@@ -80,27 +80,29 @@ export function hasCriticalCacheKeyword(directives: Set<string>): boolean {
 /**
  * Classify cache-control drift severity.
  *
- * Logic per Phase-B2.md §4.D1 with extended semantics:
- * - "critical" if critical keywords appear on only one side
- *   (one has no-store/private, other does not)
- * - "warn" if non-critical directives differ (caching policy changed)
- *   (e.g., max-age=3600 vs max-age=7200, or public vs missing, etc.)
+ * MVP Outcome-Focused Logic (Option 1):
+ * - "warn" if any directives differ (cache policy change)
  * - "info" if directive sets are identical
  *
- * Rationale: Non-critical directive changes signal policy shifts that LLM should investigate.
+ * Rationale: Cache-control drift is policy-level observability, not outcome-level
+ * criticality. The request still succeeds (200), headers are returned, response
+ * body is received. Only the caching instructions differ.
  *
- * Example scenarios:
- * - left: "no-store", right: "public" → critical (left has, right lacks)
- * - left: "public", right: "private" → critical (right has, left lacks)
- * - left: "no-store", right: "no-store" → info (both identical)
- * - left: "public, max-age=3600", right: "public, max-age=7200" → warn (directive changed)
+ * Per MVP philosophy: "critical" reserved for outcome changes (status, host mismatch).
+ * Cache-control changes = infrastructure observation = warn.
+ *
+ * Example scenarios (all now warn):
+ * - left: "no-store", right: "public" → warn (policy changed)
+ * - left: "public", right: "private" → warn (policy changed)
+ * - left: "public, max-age=3600", right: "public, max-age=7200" → warn (policy changed)
  * - left: "public, max-age=3600", right: undefined → warn (policy removed)
- * - left: undefined, right: "no-store" → critical (right has critical, left lacks)
+ * - left: undefined, right: "no-store" → warn (policy added)
+ * - left: "no-store", right: "no-store" → info (both identical)
  * - left: undefined, right: undefined → info (both absent)
  *
  * @param left - Left cache-control header value (raw), or undefined
  * @param right - Right cache-control header value (raw), or undefined
- * @returns Severity: "critical" (critical keyword differs), "warn" (other directive drift), or "info" (no drift)
+ * @returns Severity: "warn" (any directive drift) or "info" (no drift)
  */
 export function classifyCacheControlDrift(
   left?: string,
@@ -110,16 +112,7 @@ export function classifyCacheControlDrift(
   const leftDirectives = parseCacheControl(left);
   const rightDirectives = parseCacheControl(right);
 
-  // Check critical keyword presence on each side
-  const leftHasCritical = hasCriticalCacheKeyword(leftDirectives);
-  const rightHasCritical = hasCriticalCacheKeyword(rightDirectives);
-
-  // If critical keyword presence differs, it's a critical drift
-  if (leftHasCritical !== rightHasCritical) {
-    return "critical";
-  }
-
-  // If directive sets differ (but no critical keywords), it's a warning drift
+  // Any difference in directives = warn (operational policy change)
   if (!directivesSetsEqual(leftDirectives, rightDirectives)) {
     return "warn";
   }

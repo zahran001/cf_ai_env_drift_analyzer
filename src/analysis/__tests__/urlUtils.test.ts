@@ -66,12 +66,12 @@ describe("urlUtils", () => {
   });
 
   describe("classifyUrlDrift", () => {
-    it("should return critical when scheme differs", () => {
+    it("should return info when scheme differs (only)", () => {
       const result = classifyUrlDrift(
         "http://example.com",
         "https://example.com"
       );
-      expect(result.severity).toBe("critical");
+      expect(result.severity).toBe("info");
       expect(result.diffTypes).toContain("scheme");
     });
 
@@ -123,12 +123,12 @@ describe("urlUtils", () => {
       expect(result.diffTypes).toContain("host");
     });
 
-    it("should return critical when scheme differs (host same)", () => {
+    it("should return info when scheme differs (host same)", () => {
       const result = classifyUrlDrift(
         "http://example.com/path",
         "https://example.com/path"
       );
-      expect(result.severity).toBe("critical");
+      expect(result.severity).toBe("info");
       expect(result.diffTypes).toEqual(["scheme"]);
     });
 
@@ -180,6 +180,38 @@ describe("urlUtils", () => {
       );
       expect(result.severity).toBe("critical");
       expect(result.diffTypes).toContain("scheme");
+    });
+
+    it("should return warn when scheme and path both differ (but not host)", () => {
+      const result = classifyUrlDrift(
+        "http://example.com/a",
+        "https://example.com/b"
+      );
+      expect(result.severity).toBe("warn");
+      expect(result.diffTypes).toContain("scheme");
+      expect(result.diffTypes).toContain("path");
+      expect(result.diffTypes).not.toContain("host");
+    });
+
+    it("should return warn when scheme and query both differ (but not host)", () => {
+      const result = classifyUrlDrift(
+        "http://example.com/path?x=1",
+        "https://example.com/path?x=2"
+      );
+      expect(result.severity).toBe("warn");
+      expect(result.diffTypes).toContain("scheme");
+      expect(result.diffTypes).toContain("query");
+      expect(result.diffTypes).not.toContain("host");
+    });
+
+    it("should return critical when scheme differs along with host", () => {
+      const result = classifyUrlDrift(
+        "http://example.com",
+        "https://other.com"
+      );
+      expect(result.severity).toBe("critical");
+      expect(result.diffTypes).toContain("scheme");
+      expect(result.diffTypes).toContain("host");
     });
   });
 });

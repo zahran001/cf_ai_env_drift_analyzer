@@ -38,9 +38,10 @@ function extractHostname(url?: string): string | undefined {
  * Classify redirect chain drift based on hop count and final hostname changes.
  * Rule B3: Redirect Chain Changed → `REDIRECT_CHAIN_CHANGED`
  *
- * Per Phase-B2.md §4.B3:
- * - warn by default
- * - critical if hop count differs by ≥ 2 OR final hostname differs
+ * MVP Outcome-Focused Severity:
+ * - info: No changes
+ * - warn: Hop count differs (infrastructure observation, but request succeeds)
+ * - critical: Final hostname differs (outcome change, user lands elsewhere)
  *
  * Note: Compares hostnames (not full URLs) to avoid false positives when only
  * scheme or port differs. E.g., http://final.com and https://final.com have
@@ -68,14 +69,16 @@ export function classifyRedirectChainDrift(
 
   const finalHostChanged = leftFinalHostname !== rightFinalHostname;
 
-  // Determine severity per Phase-B2.md §4.B3
+  // Determine severity
+  // MVP philosophy: critical only for outcome changes (final host mismatch)
+  // Hop count changes are infrastructure observations, not critical
   let severity: Severity = "info";
 
-  // critical if hop count differs by ≥ 2 OR final hostname differs
-  if (hopCountDiff >= 2 || finalHostChanged) {
+  // critical only if final hostname differs (outcome change)
+  if (finalHostChanged) {
     severity = "critical";
   } else if (hopCountChanged) {
-    // hop count differs by exactly 1 = warn
+    // Any hop count change = warn (infrastructure observation)
     severity = "warn";
   }
 
