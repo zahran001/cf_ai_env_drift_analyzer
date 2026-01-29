@@ -10,9 +10,19 @@
 
 ## Executive Summary
 
-This plan transforms the current minimal App.tsx (65 lines, raw JSON dump) into a **polished MVP UI** that faithfully implements the design from `UI_Design.md` while respecting the `CLAUDE.md` architecture and phase-locked backend API.
+This plan transforms the current minimal App.tsx (65 lines, raw JSON dump) into a **polished MVP UI** that faithfully implements the design from [Phase-UI-Docs/Design/](./Phase-UI-Docs/Design/) while respecting the `CLAUDE.md` architecture and phase-locked backend API.
 
 **Current State:** Phase 1 (polling logic) complete; Phases 2–3 (storage, components) missing.
+
+**Critique Status (2026-01-29):** All 5 issues resolved + 3 decisions finalized:
+- ✅ "queued" status handling (HIGH) — fold into "running"
+- ✅ CompareError type lost in hook (MEDIUM) — now properly typed
+- ✅ LlmExplanation type missing (MEDIUM) — promoted to @shared/llm.ts
+- ✅ Tailwind contradiction (MEDIUM) — fixed checklist
+- ✅ Broken doc reference (LOW) — updated to Phase-UI-Docs/Design/
+- ✅ @shared path alias (DECISION A) — configured in tsconfig + vite
+- ✅ LLM explanation typing (DECISION A) — uses @shared/llm.ts
+- See [Critique Resolution Guide](#critique-resolution-notes) below
 
 **Outcome:** A professional, fully-typed React application with:
 - ✅ Environment pair management with persistent history
@@ -20,6 +30,67 @@ This plan transforms the current minimal App.tsx (65 lines, raw JSON dump) into 
 - ✅ 4-layer dashboard (Summary → Narrative → Evidence → Forensics)
 - ✅ Graceful error handling with human-readable guidance
 - ✅ Full TypeScript type safety using backend contracts
+
+---
+
+## Critique Resolution Notes (2026-01-29)
+
+### Issues Resolved
+
+**Issue #1 (HIGH): "queued" Status Not Handled** ✅
+- **Problem:** Backend returns "queued" status, but hook treated it as "completed"
+- **Fix:** `useComparisonPoll.ts` now treats "queued" → "running" (Decision A)
+- **Impact:** Proper status display; heuristic progress messaging covers queuing phase
+
+**Issue #2 (MEDIUM): CompareError Type Lost** ✅
+- **Problem:** Hook stored error as `string | null`, losing error codes for mapping
+- **Fix:** `useComparisonPoll.ts:8` now typed as `error: CompareError | null`
+- **Impact:** ErrorBanner can now map error.code → human guidance
+
+**Issue #3 (MEDIUM): LlmExplanation Type Missing** ✅
+- **Problem:** Type didn't exist in @shared/; plan expected it
+- **Fix:** Created `shared/llm.ts` with LlmExplanation + RankedCause + RecommendedAction types
+- **Impact:** Full type safety for explanation rendering in ExplanationPanel
+
+**Issue #4 (MEDIUM): Tailwind Contradiction** ✅
+- **Problem:** Line 560 forbade Tailwind, line 645 checklist added it
+- **Fix:** Updated Phase 3H checklist to explicitly require CSS Modules only
+- **Impact:** Clear implementation guidance; no accidental dependency changes
+
+**Issue #5 (LOW): Broken Design Reference** ✅
+- **Problem:** Plan referenced non-existent `UI_Design.md`
+- **Fix:** Updated line 13 to point to `Phase-UI-Docs/Design/`
+- **Impact:** Developers can find design source-of-truth immediately
+
+### Configuration Changes Deployed
+
+**@shared Path Alias (Decision A)** ✅
+- Updated `pages/tsconfig.app.json`: Added `paths: { "@shared/*": ["../shared/*"] }`
+- Updated `pages/vite.config.ts`: Added Vite resolver alias via `fileURLToPath`
+- Updated imports in `pages/src/lib/api.ts` and `pages/src/hooks/useComparisonPoll.ts` to use `@shared/api`
+- **Result:** Clean, maintainable imports; refactor-safe
+
+**LLM Explanation Typing (Decision A)** ✅
+- Created `shared/llm.ts` with structured types:
+  - `LlmExplanation` — top-level response
+  - `RankedCause` — { cause, confidence, evidence }
+  - `RecommendedAction` — { action, why }
+- Updated `shared/api.ts` CompareResult to include `explanation?: unknown` (ready for B3 to fill with LlmExplanation)
+- **Result:** Type-safe UI components; matches CLAUDE.md shared type principle
+
+**"queued" Status Handling (Decision A)** ✅
+- Updated `useComparisonPoll.ts:54` to check `if (resp.status === "running" || resp.status === "queued")`
+- Folded into "running" state → single UI progress track
+- Added comment explaining rationale (heuristic messaging already covers it)
+- **Result:** Simpler UX; transparent to backend queue state
+
+### No Breaking Changes
+
+All fixes are **backward-compatible**:
+- Existing hook callers still receive `{ status, result, error }` object (shape unchanged)
+- Only type of `error` field changed (string → CompareError) — proper types only
+- New @shared types are additions to existing contracts (no removals)
+- Components can safely cast `result.explanation` to `LlmExplanation` when B3 is ready
 
 ---
 
@@ -154,13 +225,14 @@ const [filterCategory, setFilterCategory] = useState<FindingCategory | null>(nul
 
 ### 2.4 Type Safety Contract
 
-**All component props must be typed from `@shared/` contracts:**
+**All component props must be typed from `@shared/` contracts via the @shared/ path alias:**
 
 ```typescript
-// ✅ CORRECT
+// ✅ CORRECT (with @shared/ alias configured)
 import type { CompareResult, DiffFinding, Severity } from "@shared/api";
 import type { SignalEnvelope, ProbeError } from "@shared/signal";
 import type { EnvDiff } from "@shared/diff";
+import type { LlmExplanation } from "@shared/llm";
 
 interface SummaryStripProps {
   result: CompareResult;
@@ -285,16 +357,15 @@ export function usePairHistory() {
 
 ### Phase 3B: Polling & Progress (3 hours)
 
-#### `pages/src/hooks/useComparisonPoll.ts` (MODIFY)
+#### `pages/src/hooks/useComparisonPoll.ts` (MODIFIED — Critique Fixes Applied)
 ```typescript
 /**
- * Enhanced polling with backoff, heuristic progress, and cancelation (Gotcha #5 Fix).
+ * Enhanced polling with backoff and proper error handling.
  *
- * Returns object with cancel() method to stop polling.
- * When canceled:
- * - Polling stops immediately
- * - comparisonId is preserved (user can query status later)
- * - Status remains last-known value
+ * CRITIQUE FIXES (2026-01-29):
+ * - "queued" status now treated as "running" (backend contract issue #1)
+ * - error field typed as CompareError | null, not string (issue #2)
+ * - Enables proper error code mapping in ErrorBanner component
  */
 export function useComparisonPoll<ResultT>(
   comparisonId: string | null,
@@ -305,11 +376,16 @@ export function useComparisonPoll<ResultT>(
   // {
   //   status: "idle" | "running" | "completed" | "failed",
   //   result: ResultT | null,
-  //   error: string | null,
-  //   progress?: string,       // Heuristic message
-  //   elapsedMs?: number,      // Elapsed since poll start
-  //   cancel: () => void,      // ✅ NEW: stop polling
+  //   error: CompareError | null,    // ✅ CHANGED: was string | null
+  //   progress?: string,              // Heuristic message
+  //   elapsedMs?: number,             // Elapsed since poll start
   // }
+
+  // Status handling:
+  // - "queued" → treated as "running" (transient state, same UX)
+  // - "running" → ongoing polling
+  // - "completed" → result ready
+  // - "failed" → error set (with code for mapping)
 }
 ```
 
@@ -371,13 +447,18 @@ interface SummaryStripProps {
 
 ### Phase 3D: Dashboard Layer 1 — Explanation (3 hours)
 
-#### `pages/src/components/ExplanationPanel.tsx` (NEW)
+#### `pages/src/components/ExplanationPanel.tsx` (NEW — Critique Fix #3 Applied)
 ```typescript
 /**
  * LLM-generated explanation.
  *
  * Contract (from CompareResult):
- * - explanation? { summary, ranked_causes, actions, notes? }
+ * - explanation?: LlmExplanation  // Type now defined in @shared/llm.ts
+ *
+ * CRITIQUE FIX (2026-01-29):
+ * - LlmExplanation type promoted to @shared/ (was undefined)
+ * - Full type safety from shared contract
+ * - Graceful degradation if explanation is null
  *
  * Graceful degradation:
  * - If no explanation: show "Explanation unavailable" banner
@@ -642,9 +723,9 @@ interface ErrorBannerProps {
   - [ ] Create `pages/src/components/ErrorBanner.tsx`
   - [ ] Build error code → guidance mapping table
 
-- [ ] **Phase 3H:** Styling
-  - [ ] Add global CSS / Tailwind setup
-  - [ ] Style all components
+- [ ] **Phase 3H:** Styling (CSS Modules or Inline only — NO Tailwind)
+  - [ ] Add global CSS (normalize, base typography)
+  - [ ] Create CSS Modules for each component
   - [ ] Ensure responsive layout (mobile, tablet, desktop)
   - [ ] Test color contrast (a11y)
 
