@@ -65,6 +65,15 @@ export type CompareStatusResponse<ResultT = CompareResult> = {
  *   diff: EnvDiff
  *   explanation?: LlmExplanation
  */
+/**
+ * Canonical comparison output (filled out across phases).
+ *
+ * left, right, diff, explanation are initially unknown until B2/B3 are complete.
+ * In MVP, they are populated progressively:
+ * - Phase B1: comparisonId, leftUrl, rightUrl, labels
+ * - Phase B2: left, right (SignalEnvelope), diff (EnvDiff)
+ * - Phase B3: explanation (LlmExplanation)
+ */
 export type CompareResult = {
   comparisonId: string;
 
@@ -79,6 +88,5 @@ export type CompareResult = {
   left?: unknown;
   right?: unknown;
   diff?: unknown;
-
-  // explanation?: unknown;
+  explanation?: unknown; // Will be LlmExplanation once B3 is complete
 };

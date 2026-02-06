@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { CompareStatusResponse } from "../../../shared/api";
+import type { CompareStatusResponse, CompareError } from "@shared/api";
 import { getCompareStatus } from "../lib/api";
 
 type PollState<ResultT> = {
   status: "idle" | "running" | "completed" | "failed";
   result: ResultT | null;
-  error: string | null;
+  error: CompareError | null;
 };
 
 export function useComparisonPoll<ResultT = unknown>(
@@ -51,16 +51,17 @@ export function useComparisonPoll<ResultT = unknown>(
         const resp: CompareStatusResponse<ResultT> =
           await getCompareStatus<ResultT>(comparisonId);
 
-        if (resp.status === "running") {
+        // Treat "queued" as "running" for UX purposes; heuristic progress messaging covers the queuing phase
+        if (resp.status === "running" || resp.status === "queued") {
           setState((s) => ({ ...s, status: "running" }));
         } else if (resp.status === "failed") {
           setState({
             status: "failed",
             result: null,
-            error: resp.error ?? "Comparison failed.",
+            error: resp.error ?? { code: "internal_error", message: "Comparison failed." },
           });
           return;
-        } else {
+        } else if (resp.status === "completed") {
           setState({
             status: "completed",
             result: (resp.result ?? null) as ResultT | null,
@@ -72,7 +73,10 @@ export function useComparisonPoll<ResultT = unknown>(
         setState({
           status: "failed",
           result: null,
-          error: e?.message ?? "Request failed.",
+          error: {
+            code: "internal_error",
+            message: e?.message ?? "Request failed.",
+          },
         });
         return;
       }

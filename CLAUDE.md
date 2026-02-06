@@ -349,6 +349,8 @@ CREATE TABLE probes (
 
 ## 4. Data Flow Rules
 
+> **⚠️ UI DEVELOPERS:** For frontend-specific protocols (state management, component contracts, development workflow), see **Section 16: UI Development Protocol (Spec-Driven)**. This section documents backend data flow only.
+
 ### 4.1 Frontend -> Backend
 
 **Frontend must never:**
@@ -362,6 +364,8 @@ CREATE TABLE probes (
 2. Receive `{ comparisonId }` immediately
 3. Poll `GET /api/compare/:comparisonId` at regular intervals
 4. Stop polling when status is `completed` or `failed`
+
+> **See Section 16.3** for frontend polling implementation details (useComparisonPoll hook, backoff strategy, error handling).
 
 ---
 
@@ -519,6 +523,8 @@ VITE_API_BASE_URL=http://localhost:8787
 - Frontend and backend must run in parallel for local dev
 - Backend must be running before frontend attempts API calls
 - Both processes must be able to restart independently
+
+> **See Section 16** for frontend-specific development protocols (spec-driven workflow, context loading, code review).
 
 ---
 
@@ -815,12 +821,123 @@ Before merging any PR:
 
 ---
 
-**Last Updated:** 2026-01-05
-**Version:** 1.1 (MVP with Cloudflare-specific refinements)
+## 16. UI Development Protocol (Spec-Driven)
+
+### 16.1 Authority & Governance
+
+All React frontend work in `/pages/` is strictly governed by the **Spec Kit** stored in `pages/.specify/`:
+
+- **constitution.md** — Non-negotiable technical constraints (React 19, CSS Modules ONLY, @shared/* imports, zero `any` types)
+- **spec.md** — Complete component contract inventory (props interfaces, type safety, critical flows)
+- **plan.md** — Phased execution plan (10 phases: 3A–3K, ~40 developer-hours)
+
+**Invariant:** These documents are the law of the frontend. Any deviation requires explicit written approval from the project lead and must be documented in a revision to the Spec Kit.
+
+### 16.2 Context Loading (BEFORE Coding)
+
+**You MUST read these files in order before writing any code in `pages/`:**
+
+1. Read `pages/.specify/constitution.md` (Tech Stack, Styling, Imports, State Management, Safety)
+2. Read `pages/.specify/spec.md` (Component Contracts, Props Interfaces, Critical Flows)
+3. Read `pages/.specify/plan.md` (Phased breakdown, active tasks)
+
+**Time investment:** ~15 minutes per task. Non-negotiable.
+
+**Why:** Prevents duplicate effort, enforces consistency, catches violations early.
+
+### 16.3 Execution Protocol
+
+**Do not write code unless the task is active in `pages/.specify/plan.md`.**
+
+**Task Status:**
+- `[ ]` = Not started (do not code)
+- `[in-progress]` = Currently being implemented (you can code)
+- `[x]` = Completed (code review + tests passed)
+
+**Workflow:**
+1. Identify the task in `pages/.specify/plan.md`
+2. Read the acceptance criteria for that task
+3. Implement the task following the spec.md contracts
+4. Verify against constitution.md constraints
+5. Mark complete in plan.md (with PR link)
+
+### 16.4 Critical Constraints (Constitution Enforcement)
+
+**MUST NEVER violate these or code review will reject:**
+
+| Constraint | Violation | Consequence |
+|-----------|-----------|------------|
+| CSS Modules ONLY | Add Tailwind, shadcn, Emotion, Styled Components | **CRITICAL FAIL** — Reject PR |
+| @shared/* imports | Use relative paths (e.g., `../../shared/api`) | **CRITICAL FAIL** — Reject PR |
+| Zero `any` types | Use `any` without justification + comment | **CRITICAL FAIL** — Reject PR |
+| React 19 + Vite 7 | Use older versions or alternative frameworks | **CRITICAL FAIL** — Reject PR |
+| useState + Hooks | Add Redux, Zustand, MobX | **CRITICAL FAIL** — Reject PR |
+| usePairHistory for persistence | Use custom localStorage logic | **FAIL** — Refactor required |
+| npm run type-check passes | Merge with TypeScript errors | **FAIL** — Fix before merge |
+
+**Severity:** CRITICAL violations block all PRs. Type safety violations require immediate fix.
+
+### 16.5 Code Review Checklist (UI-Specific)
+
+Before merging any PR to `pages/`, verify:
+
+- [ ] No new CSS framework imports (grep for Tailwind, shadcn, emotion, styled-components)
+- [ ] All types imported from `@shared/*` with alias (not relative paths)
+- [ ] Zero `any` types (except justified + commented)
+- [ ] Component props typed with @shared contracts
+- [ ] usePairHistory hook used for persistence (not custom localStorage)
+- [ ] useComparisonPoll supports backoff array [500, 1000, 2000]
+- [ ] Error handling uses ERROR_GUIDANCE mapping (not raw error messages)
+- [ ] Optional fields use graceful degradation chain (evidence → values → JSON)
+- [ ] CSS Modules used (no inline `<style>` tags, except dynamic Phase 2)
+- [ ] Responsive layout tested on mobile (320px), tablet (481px), desktop (1025px)
+- [ ] No sibling imports across `src/components` and `src/hooks`
+- [ ] `npm run type-check` passes (zero errors)
+- [ ] E2E happy path tested with real backend (if integration ready)
+- [ ] JSDoc comments added to public APIs only
+
+### 16.6 Phase Locking
+
+Frontend work is **phase-locked to backend readiness:**
+
+- **Phases 3A–3I:** Can be implemented independently (hooks, components, styling)
+- **Phases 3J–3K:** Requires backend `/api/compare` endpoints (testing, E2E)
+
+**Parallel Track:** Backend Phases B1–B3 progress in parallel. Frontend assumes:
+- `POST /api/compare` endpoint available
+- `GET /api/compare/:id` endpoint available
+- Correct `CompareResult` schema from `@shared/*`
+
+### 16.7 Documentation Sync
+
+When UI work changes the contract:
+
+1. Update `pages/.specify/spec.md` (component contracts)
+2. Update `pages/.specify/plan.md` (affected phases)
+3. Update `pages/.specify/constitution.md` (if constraints change)
+4. Update `/shared/` types (if new types needed)
+5. Add entry to this file's changelog (Section "Changelog")
+
+**Invariant:** Spec files are ALWAYS in sync with code. Never deploy spec drift.
+
+---
+
+**Last Updated:** 2026-02-05
+**Version:** 1.2 (UI Development Protocol added)
 
 ---
 
 ## Changelog
+
+### v1.2 (2026-02-05) - UI Development Protocol
+- Added Section 16: UI Development Protocol (Spec-Driven)
+- Established authority of `pages/.specify/` (constitution.md, spec.md, plan.md)
+- Added context loading requirement (BEFORE any code in /pages/)
+- Added execution protocol (task status tracking, workflow)
+- Added critical constraints enforcement (7 binding rules, CRITICAL violations)
+- Added UI-specific code review checklist (14-point enforcement)
+- Added phase locking (3A–3I independent, 3J–3K dependent on backend)
+- Added documentation sync requirement (spec files ALWAYS in sync with code)
 
 ### v1.1 (2026-01-05) - Cloudflare-Specific Refinements
 - Added explicit idempotency requirements for Workflow steps (section 2.2)
