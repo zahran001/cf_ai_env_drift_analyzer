@@ -113,52 +113,54 @@
 
 ---
 
-## Phase 3C: Dashboard Layer 0 — Summary (4 hours)
+## Phase 3C: Dashboard Layer 0 — Summary (4 hours) ✅ COMPLETE
 
 **Goal:** Display high-level result overview (severity, findings count, HTTP status codes).
 
+**Status:** ✅ COMPLETE (2026-02-06)
+
 ### Tasks
 
-- [ ] **3C.1** Create `pages/src/components/SummaryStrip.tsx` (~2 hours)
-  - Props: result (CompareResult), onFindingClick? (optional callback)
-  - Type casting: `const diff = result.diff as EnvDiff | undefined`
-  - Extract max severity from findings (critical > warn > info)
-  - Display findings count
-  - Display left status code + duration
-  - Display right status code + duration
-  - Layout: horizontal flex with divider
-  - CSS Module: SummaryStrip.module.css
-  - Responsive: single column on mobile, side-by-side on tablet+
+- [x] **3C.1** Create `pages/src/components/SummaryStrip.tsx` (~2 hours)
+  - [x] Props: result (CompareResult), onFindingClick? (optional callback)
+  - [x] Type casting: `const diff = result.diff as EnvDiff | undefined`
+  - [x] Extract max severity from findings (critical > warn > info)
+  - [x] Display findings count
+  - [x] Display left status code + duration
+  - [x] Display right status code + duration
+  - [x] Layout: horizontal flex with divider
+  - [x] CSS Module: SummaryStrip.module.css
+  - [x] Responsive: single column on mobile, side-by-side on tablet+
 
-- [ ] **3C.2** Create `pages/src/components/SummaryStrip.module.css` (~0.5 hours)
-  - .container: flex, gap 16px, padding 16px, border 1px gray-300, rounded
-  - .badge: inline-flex, gap 8px, padding 6px 12px, rounded 4px
-  - .badgeCritical: bg #fee2e2, color #dc2626
-  - .badgeWarn: bg #fef3c7, color #f59e0b
-  - .badgeInfo: bg #dbeafe, color #3b82f6
-  - .statusCode: monospace, 14px, gray-800
-  - Mobile-first responsive
+- [x] **3C.2** Create `pages/src/components/SummaryStrip.module.css` (~0.5 hours)
+  - [x] .container: flex, gap 16px, padding 16px, border 1px gray-300, rounded
+  - [x] .badge: inline-flex, gap 8px, padding 6px 12px, rounded 4px
+  - [x] .badgeCritical: bg #fee2e2, color #dc2626
+  - [x] .badgeWarn: bg #fef3c7, color #f59e0b
+  - [x] .badgeInfo: bg #dbeafe, color #3b82f6
+  - [x] .statusCode: monospace, 14px, gray-800
+  - [x] Mobile-first responsive
 
-- [ ] **3C.3** Create sub-component: SeverityBadge (~0.5 hours)
-  - Props: severity (Severity)
-  - Return styled badge with color + emoji (🔴/🟠/🔵)
+- [x] **3C.3** Create sub-component: SeverityBadge (~0.5 hours)
+  - [x] Props: severity (Severity)
+  - [x] Return styled badge with color + emoji (🔴/🟠/🔵)
 
-- [ ] **3C.4** Create sub-component: StatusCodeBadge (~0.5 hours)
-  - Props: status (number), durationMs (number)
-  - Return formatted "200 (42ms)" badge
+- [x] **3C.4** Create sub-component: StatusCodeBadge (~0.5 hours)
+  - [x] Props: status (number), durationMs (number)
+  - [x] Return formatted "200 (42ms)" badge
 
-- [ ] **3C.5** Add unit test: SummaryStrip snapshot (~0.5 hours)
-  - Render with sample CompareResult
-  - Verify severity badge displays correctly
-  - Verify findings count calculated
+- [x] **3C.5** Add unit test: SummaryStrip snapshot (~0.5 hours)
+  - [x] Render with sample CompareResult
+  - [x] Verify severity badge displays correctly
+  - [x] Verify findings count calculated
 
 **Acceptance Criteria:**
-- [ ] SummaryStrip renders without crash
-- [ ] Findings count matches result.diff.findings.length
-- [ ] Max severity correctly identified (critical > warn > info)
-- [ ] Status codes + durations displayed
-- [ ] Responsive on mobile/tablet/desktop
-- [ ] npm run type-check passes
+- [x] SummaryStrip renders without crash
+- [x] Findings count matches result.diff.findings.length
+- [x] Max severity correctly identified (critical > warn > info)
+- [x] Status codes + durations displayed
+- [x] Responsive on mobile/tablet/desktop
+- [x] npm run type-check passes
 
 ---
 
