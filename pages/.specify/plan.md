@@ -15,40 +15,58 @@
 
 ---
 
-## Phase 3A: Input Layer & History (3 hours)
+## Phase 3A: Input Layer & History (3 hours) ✅ COMPLETE
 
 **Goal:** Enable environment pair input with persistent history.
 
+**Status:** ✅ COMPLETE (2026-02-06)
+
 ### Tasks
 
-- [ ] **3A.1** Create `pages/src/hooks/usePairHistory.ts` (~1.5 hours)
-  - Implement HistoryEntry interface
-  - Implement savePair() with LRU eviction (max 20 entries)
-  - Implement listPairs() to retrieve all (MRU first)
-  - Implement getPair(pairKey) to retrieve single
-  - Implement deletePair(pairKey) to remove
-  - Use single localStorage key: `"cf-env-history"`
-  - All operations synchronous (no async IO)
-  - Write unit tests: savePair, listPairs, LRU at 20 entries
+- [x] **3A.1** Create `pages/src/hooks/usePairHistory.ts` (~1.5 hours)
+  - [x] Implement HistoryEntry interface
+  - [x] Implement savePair() with LRU eviction (max 20 entries)
+  - [x] Implement listPairs() to retrieve all (MRU first)
+  - [x] Implement getPair(pairKey) to retrieve single
+  - [x] Implement deletePair(pairKey) to remove
+  - [x] Use single localStorage key: `"cf-env-history"`
+  - [x] All operations synchronous (no async IO)
+  - [x] Write unit tests: savePair, listPairs, LRU at 20 entries
 
-- [ ] **3A.2** Update `pages/src/App.tsx` to add label inputs (~1 hour)
-  - Add state: `leftLabel`, `rightLabel`
-  - Add label input fields in ControlPlane
-  - Pass labels to CompareRequest in handleSubmit()
-  - Integrate usePairHistory() hook
-  - Show history sidebar or list (optional UI for MVP)
+- [x] **3A.2** Create `pages/src/components/ControlPlane.tsx` (~1.5 hours)
+  - [x] Create ControlPlane component (controlled component pattern)
+  - [x] Add URL input fields (left and right, required)
+  - [x] Add label input fields (optional)
+  - [x] Implement swap button (bidirectional URL/label exchange)
+  - [x] Add submit button with disabled state logic
+  - [x] Client-side SSRF preflight warning (localhost/private IPs)
+  - [x] Form validation (both URLs required)
+  - [x] Create ControlPlane.module.css (mobile-first responsive)
+  - [x] Write 17 unit tests
 
-- [ ] **3A.3** Update `pages/src/lib/api.ts` (~0.5 hours)
-  - Ensure all API calls use `cache: 'no-store'`
-  - Verify CompareRequest type includes labels
-  - Type polling response from @shared/api
+- [x] **3A.3** Update `pages/src/lib/api.ts` (~0.5 hours)
+  - [x] Ensure all API calls use `cache: 'no-store'`
+  - [x] Verify CompareRequest type includes labels
+  - [x] Type polling response from @shared/api
+
+- [x] **Integration** App.tsx with ControlPlane
+  - [x] Import ControlPlane component
+  - [x] Wire state callbacks (onLeftUrlChange, onRightUrlChange, etc.)
+  - [x] Integrate usePairHistory() hook
+  - [x] Show history sidebar with recent pairs
+  - [x] Pass loading state to ControlPlane
 
 **Acceptance Criteria:**
-- [ ] usePairHistory hook saves/retrieves pairs without errors
-- [ ] LRU eviction works at 20 entries
-- [ ] Labels are optional but accepted in UI
-- [ ] localStorage persists across page reloads
-- [ ] npm run type-check passes (zero errors)
+- [x] usePairHistory hook saves/retrieves pairs without errors
+- [x] LRU eviction works at 20 entries
+- [x] Labels are optional but accepted in UI
+- [x] localStorage persists across page reloads
+- [x] npm run type-check passes (zero errors)
+- [x] npm run build succeeds
+- [x] All tests passing (29 tests: 12 usePairHistory + 17 ControlPlane)
+- [x] Responsive layout (mobile 320px, tablet 481px+)
+- [x] CSS Modules only (no Tailwind)
+- [x] Zero `any` types
 
 ---
 
