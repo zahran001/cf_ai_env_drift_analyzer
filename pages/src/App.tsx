@@ -4,9 +4,12 @@ import { useComparisonPoll } from "./hooks/useComparisonPoll";
 import { usePairHistory } from "./hooks/usePairHistory";
 import { ControlPlane } from "./components/ControlPlane";
 import { ProgressIndicator } from "./components/ProgressIndicator";
+import { SummaryStrip } from "./components/SummaryStrip";
+import { FindingsList } from "./components/FindingsList";
 
 export default function App() {
   const [comparisonId, setComparisonId] = useState<string | null>(null);
+  const [expandedFindingId, setExpandedFindingId] = useState<string | null>(null);
 
   // Polling with exponential backoff: 500ms, 1000ms, 2000ms, then repeat 2000ms
   const poll = useComparisonPoll<any>(comparisonId, [500, 1000, 2000]);
@@ -14,8 +17,18 @@ export default function App() {
 
   async function handleCompareSubmit(req: any) {
     setComparisonId(null);
+    setExpandedFindingId(null);
     const { comparisonId } = await startCompare(req);
     setComparisonId(comparisonId);
+  }
+
+  /**
+   * Toggle semantics for finding expansion:
+   * - Click same finding → collapse it
+   * - Click different finding → expand the new one
+   */
+  function handleFindingClick(findingId: string) {
+    setExpandedFindingId((prev) => (prev === findingId ? null : findingId));
   }
 
   return (
@@ -85,9 +98,20 @@ export default function App() {
         )}
 
         {poll.status === "completed" && poll.result && (
-          <pre style={{ marginTop: 12, padding: 12, background: "#f6f8fa", overflowX: "auto" }}>
-            {JSON.stringify(poll.result, null, 2)}
-          </pre>
+          <div style={{ marginTop: 20 }}>
+            <SummaryStrip result={poll.result} />
+
+            {/* Extract findings from result.diff if available */}
+            {poll.result.diff && "findings" in poll.result.diff && (
+              <div style={{ marginTop: 20 }}>
+                <FindingsList
+                  findings={poll.result.diff.findings || []}
+                  expandedId={expandedFindingId}
+                  onExpandClick={handleFindingClick}
+                />
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

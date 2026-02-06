@@ -1,0 +1,96 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background-color: #f9fafb;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.expandAllButton {
+  padding: 8px 12px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.expandAllButton:hover {
+  background-color: #1d4ed8;
+}
+
+.expandAllButton:active {
+  background-color: #1e40af;
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* No findings state */
+.noFindings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 16px;
+  text-align: center;
+  background-color: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+}
+
+.noFindingsIcon {
+  font-size: 32px;
+  color: #10b981;
+}
+
+.noFindingsText {
+  font-size: 16px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Mobile-first responsive */
+@media (min-width: 481px) {
+  .container {
+    padding: 20px;
+  }
+
+  .header {
+    margin-bottom: 12px;
+  }
+
+  .title {
+    font-size: 20px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .container {
+    padding: 24px;
+  }
+}
