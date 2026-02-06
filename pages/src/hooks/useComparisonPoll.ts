@@ -42,7 +42,10 @@ export function useComparisonPoll<ResultT = unknown>(
         setState({
           status: "failed",
           result: null,
-          error: "Timed out waiting for comparison result.",
+          error: {
+            code: "timeout",
+            message: "Timed out waiting for comparison result.",
+          },
         });
         return;
       }

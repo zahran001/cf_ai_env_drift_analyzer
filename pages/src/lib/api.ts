@@ -6,9 +6,15 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
+/**
+ * HTTP helper for API calls.
+ * Always uses cache: 'no-store' to ensure fresh data on every request.
+ * Critical for comparison freshness and polling loop correctness.
+ */
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
+    cache: "no-store",
     headers: {
       "content-type": "application/json",
       ...(init?.headers ?? {}),
