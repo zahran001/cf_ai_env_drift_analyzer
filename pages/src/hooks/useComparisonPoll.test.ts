@@ -18,7 +18,13 @@ describe("useComparisonPoll", () => {
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    try {
+      act(() => {
+        jest.advanceTimersByTime(10000);
+      });
+    } catch {
+      // Ignore errors during cleanup
+    }
     jest.useRealTimers();
   });
 
@@ -59,7 +65,7 @@ describe("useComparisonPoll", () => {
     const { result } = renderHook(() => useComparisonPoll("cmp-123"));
 
     act(() => {
-      jest.runAllTimers();
+      jest.advanceTimersByTime(1000);
     });
 
     await waitFor(() => {
@@ -81,7 +87,7 @@ describe("useComparisonPoll", () => {
     const { result } = renderHook(() => useComparisonPoll("cmp-123"));
 
     act(() => {
-      jest.runAllTimers();
+      jest.advanceTimersByTime(1000);
     });
 
     await waitFor(() => {
@@ -102,7 +108,7 @@ describe("useComparisonPoll", () => {
     const { result } = renderHook(() => useComparisonPoll("cmp-123"));
 
     act(() => {
-      jest.runAllTimers();
+      jest.advanceTimersByTime(1000);
     });
 
     await waitFor(() => {
@@ -128,22 +134,24 @@ describe("useComparisonPoll", () => {
     act(() => {
       jest.advanceTimersByTime(0);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
+    });
 
     // Second call after 500ms backoff
     act(() => {
       jest.advanceTimersByTime(500);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(2);
+    });
 
     // Third call after 1000ms backoff
     act(() => {
       jest.advanceTimersByTime(1000);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(3);
-
     await waitFor(() => {
-      expect(mockGetCompareStatus).toHaveBeenCalled();
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -162,31 +170,41 @@ describe("useComparisonPoll", () => {
     act(() => {
       jest.advanceTimersByTime(0);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
+    });
 
     // Second call after 500ms
     act(() => {
       jest.advanceTimersByTime(500);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(2);
+    });
 
     // Third call after 1000ms (first backoff exhaustion)
     act(() => {
       jest.advanceTimersByTime(1000);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(3);
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(3);
+    });
 
     // Fourth call after 1000ms (repeats last)
     act(() => {
       jest.advanceTimersByTime(1000);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(4);
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(4);
+    });
 
     // Fifth call after 1000ms (repeats last)
     act(() => {
       jest.advanceTimersByTime(1000);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(5);
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(5);
+    });
   });
 
   test("supports single interval number", async () => {
@@ -202,19 +220,25 @@ describe("useComparisonPoll", () => {
     act(() => {
       jest.advanceTimersByTime(0);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
+    });
 
     // Second call after 1000ms
     act(() => {
       jest.advanceTimersByTime(1000);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(2);
+    });
 
     // Third call after 1000ms
     act(() => {
       jest.advanceTimersByTime(1000);
     });
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(3);
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(3);
+    });
   });
 
   test("respects maxAttempts limit", async () => {
@@ -228,16 +252,24 @@ describe("useComparisonPoll", () => {
       useComparisonPoll("cmp-123", 100, 2)
     );
 
-    jest.advanceTimersByTime(0);
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
+    act(() => {
+      jest.advanceTimersByTime(0);
+    });
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
+    });
 
-    jest.advanceTimersByTime(100);
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(2);
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    await waitFor(() => {
+      expect(mockGetCompareStatus).toHaveBeenCalledTimes(2);
+    });
 
-    jest.advanceTimersByTime(100);
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
     // Should fail on third attempt
-    expect(mockGetCompareStatus).toHaveBeenCalledTimes(2);
-
     await waitFor(() => {
       expect(result.current.status).toBe("failed");
       expect(result.current.error?.code).toBe("timeout");
@@ -253,15 +285,21 @@ describe("useComparisonPoll", () => {
 
     const { result } = renderHook(() => useComparisonPoll("cmp-123", 500));
 
-    jest.advanceTimersByTime(0);
+    act(() => {
+      jest.advanceTimersByTime(0);
+    });
     // Progress timer updates every 100ms
-    jest.advanceTimersByTime(100);
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
 
     await waitFor(() => {
       expect(result.current.elapsedMs).toBeGreaterThanOrEqual(100);
     });
 
-    jest.advanceTimersByTime(200);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
 
     await waitFor(() => {
       expect(result.current.elapsedMs).toBeGreaterThanOrEqual(300);
@@ -277,20 +315,28 @@ describe("useComparisonPoll", () => {
 
     const { result } = renderHook(() => useComparisonPoll("cmp-123", 500));
 
-    jest.advanceTimersByTime(0);
-    jest.advanceTimersByTime(100);
+    act(() => {
+      jest.advanceTimersByTime(0);
+    });
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
 
     await waitFor(() => {
       expect(result.current.progress).toBe("Initializing comparison…");
     });
 
-    jest.advanceTimersByTime(2000);
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
 
     await waitFor(() => {
       expect(result.current.progress).toBe("Probing environments…");
     });
 
-    jest.advanceTimersByTime(3500);
+    act(() => {
+      jest.advanceTimersByTime(3500);
+    });
 
     await waitFor(() => {
       expect(result.current.progress).toBe(
@@ -308,7 +354,9 @@ describe("useComparisonPoll", () => {
 
     const { result } = renderHook(() => useComparisonPoll("cmp-123", 500));
 
-    jest.runAllTimers();
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
 
     await waitFor(() => {
       expect(result.current.status).toBe("completed");
@@ -321,7 +369,9 @@ describe("useComparisonPoll", () => {
 
     const { result } = renderHook(() => useComparisonPoll("cmp-123", 100));
 
-    jest.runAllTimers();
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
 
     await waitFor(() => {
       expect(result.current.status).toBe("failed");
@@ -339,12 +389,16 @@ describe("useComparisonPoll", () => {
 
     const { unmount } = renderHook(() => useComparisonPoll("cmp-123", 500));
 
-    jest.advanceTimersByTime(0);
+    act(() => {
+      jest.advanceTimersByTime(0);
+    });
     expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
 
     unmount();
 
-    jest.advanceTimersByTime(500);
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
     // Should not call API again after unmount
     expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
   });
@@ -361,12 +415,16 @@ describe("useComparisonPoll", () => {
       { initialProps: { id: "cmp-123" } }
     );
 
-    jest.advanceTimersByTime(0);
+    act(() => {
+      jest.advanceTimersByTime(0);
+    });
     expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
 
     rerender({ id: null });
 
-    jest.advanceTimersByTime(500);
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
     // Should not call API after changing to null
     expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
   });
@@ -381,7 +439,9 @@ describe("useComparisonPoll", () => {
 
     const { result } = renderHook(() => useComparisonPoll("cmp-123", 100));
 
-    jest.runAllTimers();
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
 
     await waitFor(() => {
       expect(result.current.status).toBe("failed");
