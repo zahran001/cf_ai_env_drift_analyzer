@@ -1,0 +1,235 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SummaryStrip snapshot test: renders correctly with critical severity 1`] = `
+<div>
+  <div
+    class="container"
+  >
+    <div
+      class="section"
+    >
+      <div
+        class="badge badgeCritical"
+      >
+        🔴 Critical
+      </div>
+      <div
+        class="findingsCount"
+      >
+        1
+         
+        Finding
+      </div>
+    </div>
+    <div
+      class="divider"
+    />
+    <div
+      class="statusSection"
+    >
+      <div
+        class="statusLabel"
+      >
+        Left
+      </div>
+      <div
+        class="badge"
+      >
+        <span
+          class="status"
+        >
+          200
+        </span>
+        <span
+          class="duration"
+        >
+          (
+          42ms
+          )
+        </span>
+      </div>
+    </div>
+    <div
+      class="statusSection"
+    >
+      <div
+        class="statusLabel"
+      >
+        Right
+      </div>
+      <div
+        class="badge"
+      >
+        <span
+          class="status"
+        >
+          404
+        </span>
+        <span
+          class="duration"
+        >
+          (
+          67ms
+          )
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`SummaryStrip snapshot test: renders correctly with no findings 1`] = `
+<div>
+  <div
+    class="container"
+  >
+    <div
+      class="section"
+    >
+      <div
+        class="badge badgeInfo"
+      >
+        🔵 Info
+      </div>
+      <div
+        class="findingsCount"
+      >
+        0
+         
+        Findings
+      </div>
+    </div>
+    <div
+      class="divider"
+    />
+    <div
+      class="statusSection"
+    >
+      <div
+        class="statusLabel"
+      >
+        Left
+      </div>
+      <div
+        class="badge"
+      >
+        <span
+          class="status"
+        >
+          200
+        </span>
+        <span
+          class="duration"
+        >
+          (
+          42ms
+          )
+        </span>
+      </div>
+    </div>
+    <div
+      class="statusSection"
+    >
+      <div
+        class="statusLabel"
+      >
+        Right
+      </div>
+      <div
+        class="badge"
+      >
+        <span
+          class="status"
+        >
+          404
+        </span>
+        <span
+          class="duration"
+        >
+          (
+          67ms
+          )
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`SummaryStrip snapshot test: renders correctly with warn severity 1`] = `
+<div>
+  <div
+    class="container"
+  >
+    <div
+      class="section"
+    >
+      <div
+        class="badge badgeWarn"
+      >
+        🟠 Warning
+      </div>
+      <div
+        class="findingsCount"
+      >
+        1
+         
+        Finding
+      </div>
+    </div>
+    <div
+      class="divider"
+    />
+    <div
+      class="statusSection"
+    >
+      <div
+        class="statusLabel"
+      >
+        Left
+      </div>
+      <div
+        class="badge"
+      >
+        <span
+          class="status"
+        >
+          200
+        </span>
+        <span
+          class="duration"
+        >
+          (
+          42ms
+          )
+        </span>
+      </div>
+    </div>
+    <div
+      class="statusSection"
+    >
+      <div
+        class="statusLabel"
+      >
+        Right
+      </div>
+      <div
+        class="badge"
+      >
+        <span
+          class="status"
+        >
+          404
+        </span>
+        <span
+          class="duration"
+        >
+          (
+          67ms
+          )
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+`;

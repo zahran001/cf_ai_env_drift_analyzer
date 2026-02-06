@@ -1,0 +1,189 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ExplanationPanel matches snapshot with full explanation 1`] = `
+<div
+  class="container"
+>
+  <div
+    class="summary"
+  >
+    <h3
+      class="summaryTitle"
+    >
+      Summary
+    </h3>
+    <p
+      class="summaryText"
+    >
+      Both environments have different CORS configurations.
+    </p>
+  </div>
+  <div
+    class="section"
+  >
+    <button
+      aria-expanded="false"
+      class="sectionHeader"
+    >
+      <h3
+        class="sectionTitle"
+      >
+        Ranked Causes (
+        2
+        )
+      </h3>
+      <span
+        class="toggleIcon"
+      >
+        ▶
+      </span>
+    </button>
+  </div>
+  <div
+    class="section"
+  >
+    <button
+      aria-expanded="false"
+      class="sectionHeader"
+    >
+      <h3
+        class="sectionTitle"
+      >
+        Recommended Actions (
+        2
+        )
+      </h3>
+      <span
+        class="toggleIcon"
+      >
+        ▶
+      </span>
+    </button>
+  </div>
+  <div
+    class="notes"
+  >
+    <p
+      class="notesTitle"
+    >
+      Notes
+    </p>
+    <ul
+      class="notesList"
+    >
+      <li
+        class="notesItem"
+      >
+        Based on deterministic diff analysis
+      </li>
+      <li
+        class="notesItem"
+      >
+        No speculative reasoning
+      </li>
+    </ul>
+  </div>
+</div>
+`;
+
+exports[`ExplanationPanel matches snapshot with no actions 1`] = `
+<div
+  class="container"
+>
+  <div
+    class="summary"
+  >
+    <h3
+      class="summaryTitle"
+    >
+      Summary
+    </h3>
+    <p
+      class="summaryText"
+    >
+      Both environments have different CORS configurations.
+    </p>
+  </div>
+  <div
+    class="section"
+  >
+    <button
+      aria-expanded="false"
+      class="sectionHeader"
+    >
+      <h3
+        class="sectionTitle"
+      >
+        Ranked Causes (
+        2
+        )
+      </h3>
+      <span
+        class="toggleIcon"
+      >
+        ▶
+      </span>
+    </button>
+  </div>
+  <div
+    class="section"
+  >
+    <div
+      class="noActions"
+    >
+      <h3
+        class="sectionTitle"
+      >
+        Recommended Actions
+      </h3>
+      <p
+        class="noData"
+      >
+        No recommendations at this time.
+      </p>
+    </div>
+  </div>
+  <div
+    class="notes"
+  >
+    <p
+      class="notesTitle"
+    >
+      Notes
+    </p>
+    <ul
+      class="notesList"
+    >
+      <li
+        class="notesItem"
+      >
+        Based on deterministic diff analysis
+      </li>
+      <li
+        class="notesItem"
+      >
+        No speculative reasoning
+      </li>
+    </ul>
+  </div>
+</div>
+`;
+
+exports[`ExplanationPanel matches snapshot with null explanation 1`] = `
+<div
+  class="container"
+>
+  <div
+    class="unavailable"
+  >
+    <p>
+      Explanation unavailable
+    </p>
+    <p
+      class="unavailableDetail"
+    >
+      Showing deterministic findings only.
+    </p>
+  </div>
+</div>
+`;
