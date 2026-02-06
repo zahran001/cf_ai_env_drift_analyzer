@@ -4,7 +4,27 @@ import type {
   CompareStatusResponse,
 } from "@shared/api";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
+/**
+ * Get API base URL with graceful fallback for Jest testing.
+ * In Vite/ESM, import.meta.env is available.
+ * In Jest, we default to empty string (relative URLs).
+ */
+let _apiBase: string | undefined;
+function getApiBase(): string {
+  if (_apiBase !== undefined) {
+    return _apiBase;
+  }
+  try {
+    // @ts-ignore - import.meta is valid in ESM/Vite but requires ts-jest ESM support
+    const meta = (import.meta as any);
+    _apiBase = (meta?.env?.VITE_API_BASE_URL as string) ?? "";
+  } catch {
+    _apiBase = "";
+  }
+  return _apiBase;
+}
+
+const API_BASE = getApiBase();
 
 /**
  * HTTP helper for API calls.

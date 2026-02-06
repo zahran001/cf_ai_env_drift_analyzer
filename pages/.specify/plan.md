@@ -70,44 +70,46 @@
 
 ---
 
-## Phase 3B: Polling & Progress (3 hours)
+## Phase 3B: Polling & Progress (3 hours) ✅ COMPLETE
 
 **Goal:** Implement polling with backoff and heuristic progress messaging.
 
+**Status:** ✅ COMPLETE (2026-02-06)
+
 ### Tasks
 
-- [ ] **3B.1** Enhance `pages/src/hooks/useComparisonPoll.ts` (~1.5 hours)
-  - Add support for backoff array: `intervalMs?: number | number[]`
-  - Implement status transitions: idle → running → completed | failed
-  - Handle "queued" status as "running" (transient)
-  - Type error as `CompareError | null` (not string)
-  - Add heuristic progress message calculation
-  - Track elapsed time (ms since poll start)
-  - Add maxAttempts parameter
-  - Write unit tests: transitions, backoff, error handling
+- [x] **3B.1** Enhance `pages/src/hooks/useComparisonPoll.ts` (~1.5 hours)
+  - [x] Add support for backoff array: `intervalMs?: number | number[]`
+  - [x] Implement status transitions: idle → running → completed | failed
+  - [x] Handle "queued" status as "running" (transient)
+  - [x] Type error as `CompareError | null` (not string)
+  - [x] Add heuristic progress message calculation
+  - [x] Track elapsed time (ms since poll start)
+  - [x] Add maxAttempts parameter
+  - [x] Write unit tests: transitions, backoff, error handling (15 tests, all passing)
 
-- [ ] **3B.2** Create heuristic progress messaging utility (~0.5 hours)
-  - Function: `getHeuristicProgress(elapsedMs: number): string`
-  - <2000ms: "Initializing comparison…"
-  - <5000ms: "Probing environments…"
-  - <8000ms: "Analyzing drift & generating explanation…"
-  - >10000ms: "Taking longer than usual…"
-  - else: "Processing…"
+- [x] **3B.2** Create heuristic progress messaging utility (~0.5 hours)
+  - [x] Function: `getHeuristicProgress(elapsedMs: number): string`
+  - [x] <2000ms: "Initializing comparison…"
+  - [x] <5000ms: "Probing environments…"
+  - [x] <8000ms: "Analyzing drift & generating explanation…"
+  - [x] >10000ms: "Taking longer than usual…"
+  - [x] else: "Processing…"
 
-- [ ] **3B.3** Create `pages/src/components/ProgressIndicator.tsx` (~1 hour)
-  - Props: status, progress (message), elapsedMs
-  - Implement CSS-only spinner (no library)
-  - Display progress message
-  - Display elapsed time (e.g., "10.5s")
-  - Hide when status !== "running"
-  - CSS Module: ProgressIndicator.module.css
+- [x] **3B.3** Create `pages/src/components/ProgressIndicator.tsx` (~1 hour)
+  - [x] Props: status, progress (message), elapsedMs
+  - [x] Implement CSS-only spinner (no library)
+  - [x] Display progress message
+  - [x] Display elapsed time (e.g., "10.5s")
+  - [x] Hide when status !== "running"
+  - [x] CSS Module: ProgressIndicator.module.css (11 tests, all passing)
 
 **Acceptance Criteria:**
-- [ ] Polling respects backoff array [500, 1000, 2000]
-- [ ] Progress messages change based on elapsed time
-- [ ] "queued" status renders as "running"
-- [ ] useComparisonPoll returns typed CompareError
-- [ ] npm run type-check passes
+- [x] Polling respects backoff array [500, 1000, 2000]
+- [x] Progress messages change based on elapsed time
+- [x] "queued" status renders as "running"
+- [x] useComparisonPoll returns typed CompareError
+- [x] npm run build passes (zero errors)
 
 ---
 

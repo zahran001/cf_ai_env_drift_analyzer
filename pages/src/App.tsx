@@ -3,11 +3,13 @@ import { startCompare } from "./lib/api";
 import { useComparisonPoll } from "./hooks/useComparisonPoll";
 import { usePairHistory } from "./hooks/usePairHistory";
 import { ControlPlane } from "./components/ControlPlane";
+import { ProgressIndicator } from "./components/ProgressIndicator";
 
 export default function App() {
   const [comparisonId, setComparisonId] = useState<string | null>(null);
 
-  const poll = useComparisonPoll<any>(comparisonId);
+  // Polling with exponential backoff: 500ms, 1000ms, 2000ms, then repeat 2000ms
+  const poll = useComparisonPoll<any>(comparisonId, [500, 1000, 2000]);
   const { history } = usePairHistory();
 
   async function handleCompareSubmit(req: any) {
@@ -24,6 +26,12 @@ export default function App() {
       <ControlPlane
         onSubmit={handleCompareSubmit}
         isLoading={poll.status === "running"}
+      />
+
+      <ProgressIndicator
+        status={poll.status}
+        progress={poll.progress}
+        elapsedMs={poll.elapsedMs}
       />
 
       {history.length > 0 && (
