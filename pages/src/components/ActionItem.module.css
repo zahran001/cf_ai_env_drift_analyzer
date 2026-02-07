@@ -1,0 +1,38 @@
+.container {
+  padding: 16px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  border-left: 4px solid #3b82f6;
+}
+
+.actionText {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.why {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.6;
+}
+
+/* Mobile styling */
+@media (max-width: 480px) {
+  .container {
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .actionText {
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+
+  .why {
+    font-size: 13px;
+  }
+}

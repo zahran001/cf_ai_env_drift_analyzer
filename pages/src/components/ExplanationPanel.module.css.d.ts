@@ -1,0 +1,20 @@
+declare const styles: {
+  container: string;
+  summary: string;
+  summaryTitle: string;
+  summaryText: string;
+  section: string;
+  sectionHeader: string;
+  sectionTitle: string;
+  toggleIcon: string;
+  sectionContent: string;
+  noActions: string;
+  unavailable: string;
+  unavailableDetail: string;
+  noData: string;
+  notes: string;
+  notesTitle: string;
+  notesList: string;
+  notesItem: string;
+};
+export default styles;

@@ -1,0 +1,104 @@
+.container {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border: none;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 8px;
+}
+
+.headerButton {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  gap: 8px;
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+
+.headerButton:hover {
+  opacity: 0.8;
+}
+
+.headerButton:active {
+  opacity: 0.7;
+}
+
+.toggleIcon {
+  font-size: 12px;
+  color: #6b7280;
+  flex-shrink: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  flex: 1;
+}
+
+.copyButton {
+  padding: 4px 8px;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.copyButton:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+.copyButton:active {
+  background-color: #e5e7eb;
+}
+
+.content {
+  padding: 16px;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 481px) {
+  .header {
+    padding: 14px 18px;
+  }
+
+  .content {
+    padding: 18px;
+  }
+}

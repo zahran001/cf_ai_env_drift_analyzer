@@ -245,10 +245,10 @@ interface FindingsListProps {
 **Features:**
 - ✅ Group by category dynamically (routing, security, cache, content, timing, platform, unknown)
 - ✅ Sort by severity (critical → warn → info) WITHIN each category
-- ✅ Expandable rows (click to show detail)
+- ✅ Expandable rows (click to expand, click again to collapse)
 - ✅ Severity badge per finding (🔴 critical, 🟠 warn, 🔵 info)
 - ✅ Finding code + short message
-- ✅ Collapse/expand all button
+- ℹ️ Toggle behavior: Single-expand model (Phase 4+: multi-expand via Set<string> refactor)
 
 **Type Contract:**
 ```typescript

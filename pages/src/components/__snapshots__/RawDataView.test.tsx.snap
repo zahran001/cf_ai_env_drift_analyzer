@@ -1,0 +1,149 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`RawDataView Snapshots matches snapshot with all sections present 1`] = `
+<div
+  class="container"
+>
+  <div
+    class="title"
+  >
+    Raw Data
+  </div>
+  <div
+    class="blocks"
+  >
+    <div
+      class="container"
+    >
+      <div
+        class="header"
+      >
+        <button
+          aria-expanded="false"
+          class="headerButton"
+        >
+          <span
+            class="toggleIcon"
+          >
+            ▶
+          </span>
+          <span
+            class="title"
+          >
+            Left Probe Data
+          </span>
+        </button>
+        <button
+          class="copyButton"
+          title="Copy JSON to clipboard"
+        >
+          Copy
+        </button>
+      </div>
+    </div>
+    <div
+      class="container"
+    >
+      <div
+        class="header"
+      >
+        <button
+          aria-expanded="false"
+          class="headerButton"
+        >
+          <span
+            class="toggleIcon"
+          >
+            ▶
+          </span>
+          <span
+            class="title"
+          >
+            Right Probe Data
+          </span>
+        </button>
+        <button
+          class="copyButton"
+          title="Copy JSON to clipboard"
+        >
+          Copy
+        </button>
+      </div>
+    </div>
+    <div
+      class="container"
+    >
+      <div
+        class="header"
+      >
+        <button
+          aria-expanded="false"
+          class="headerButton"
+        >
+          <span
+            class="toggleIcon"
+          >
+            ▶
+          </span>
+          <span
+            class="title"
+          >
+            Diff Output
+          </span>
+        </button>
+        <button
+          class="copyButton"
+          title="Copy JSON to clipboard"
+        >
+          Copy
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`RawDataView Snapshots matches snapshot with only diff 1`] = `
+<div
+  class="container"
+>
+  <div
+    class="title"
+  >
+    Raw Data
+  </div>
+  <div
+    class="blocks"
+  >
+    <div
+      class="container"
+    >
+      <div
+        class="header"
+      >
+        <button
+          aria-expanded="false"
+          class="headerButton"
+        >
+          <span
+            class="toggleIcon"
+          >
+            ▶
+          </span>
+          <span
+            class="title"
+          >
+            Diff Output
+          </span>
+        </button>
+        <button
+          class="copyButton"
+          title="Copy JSON to clipboard"
+        >
+          Copy
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+`;

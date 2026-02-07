@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import type { CompareStatusResponse, CompareError } from "@shared/api";
 import { getCompareStatus } from "../lib/api";
+import { getHeuristicProgress } from "../lib/heuristic";
 
 type PollState<ResultT> = {
   status: "idle" | "running" | "completed" | "failed";
   result: ResultT | null;
   error: CompareError | null;
+  progress?: string;
+  elapsedMs?: number;
 };
 
 export function useComparisonPoll<ResultT = unknown>(
   comparisonId: string | null,
-  intervalMs = 1200,
+  intervalMs?: number | number[],
   maxAttempts = 200
 ) {
   const [state, setState] = useState<PollState<ResultT>>({
@@ -20,19 +23,50 @@ export function useComparisonPoll<ResultT = unknown>(
   });
 
   const attemptsRef = useRef(0);
+  const startTimeRef = useRef<number | null>(null);
+  const backoffArrayRef = useRef<number[]>([]);
+
+  // Normalize intervalMs to backoff array
+  useEffect(() => {
+    if (Array.isArray(intervalMs)) {
+      backoffArrayRef.current = intervalMs;
+    } else {
+      backoffArrayRef.current = [intervalMs ?? 1200];
+    }
+  }, [intervalMs]);
 
   useEffect(() => {
     if (!comparisonId) {
       setState({ status: "idle", result: null, error: null });
       attemptsRef.current = 0;
+      startTimeRef.current = null;
       return;
     }
 
     let cancelled = false;
     let timer: number | undefined;
+    let progressTimer: number | undefined;
 
     setState({ status: "running", result: null, error: null });
     attemptsRef.current = 0;
+    startTimeRef.current = Date.now();
+
+    // Update progress every 100ms
+    const updateProgress = () => {
+      if (!cancelled && startTimeRef.current) {
+        const elapsedMs = Date.now() - startTimeRef.current;
+        const progress = getHeuristicProgress(elapsedMs);
+        setState((s) => ({
+          ...s,
+          progress,
+          elapsedMs,
+        }));
+      }
+      if (!cancelled) {
+        progressTimer = window.setTimeout(updateProgress, 100);
+      }
+    };
+    progressTimer = window.setTimeout(updateProgress, 100);
 
     const tick = async () => {
       if (cancelled) return;
@@ -42,7 +76,10 @@ export function useComparisonPoll<ResultT = unknown>(
         setState({
           status: "failed",
           result: null,
-          error: "Timed out waiting for comparison result.",
+          error: {
+            code: "timeout",
+            message: "Timed out waiting for comparison result.",
+          },
         });
         return;
       }
@@ -66,6 +103,8 @@ export function useComparisonPoll<ResultT = unknown>(
             status: "completed",
             result: (resp.result ?? null) as ResultT | null,
             error: null,
+            progress: undefined,
+            elapsedMs: startTimeRef.current ? Date.now() - startTimeRef.current : undefined,
           });
           return;
         }
@@ -81,7 +120,11 @@ export function useComparisonPoll<ResultT = unknown>(
         return;
       }
 
-      timer = window.setTimeout(tick, intervalMs);
+      // Get next interval from backoff array (or repeat last)
+      const nextIntervalMs =
+        backoffArrayRef.current[Math.min(attemptsRef.current - 1, backoffArrayRef.current.length - 1)] ||
+        backoffArrayRef.current[backoffArrayRef.current.length - 1];
+      timer = window.setTimeout(tick, nextIntervalMs);
     };
 
     timer = window.setTimeout(tick, 0);
@@ -89,8 +132,9 @@ export function useComparisonPoll<ResultT = unknown>(
     return () => {
       cancelled = true;
       if (timer) window.clearTimeout(timer);
+      if (progressTimer) window.clearTimeout(progressTimer);
     };
-  }, [comparisonId, intervalMs, maxAttempts]);
+  }, [comparisonId, maxAttempts]);
 
   return state;
 }

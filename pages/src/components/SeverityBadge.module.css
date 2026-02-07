@@ -1,0 +1,25 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badgeCritical {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.badgeWarn {
+  background-color: #fef3c7;
+  color: #f59e0b;
+}
+
+.badgeInfo {
+  background-color: #dbeafe;
+  color: #3b82f6;
+}
