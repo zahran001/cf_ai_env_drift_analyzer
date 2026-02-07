@@ -1,0 +1,254 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`FindingDetailView Snapshots matches snapshot with evidence 1`] = `
+<div
+  class="container"
+>
+  <div
+    class="header"
+  >
+    <div
+      class="headerTop"
+    >
+      <div
+        class="headerContent"
+      >
+        <div
+          class="code"
+        >
+          STATUS_MISMATCH
+        </div>
+        <div
+          class="category"
+        >
+          routing
+        </div>
+        <div
+          class="badge badgeCritical"
+        >
+          🔴 Critical
+        </div>
+      </div>
+    </div>
+    <div
+      class="message"
+    >
+      Test finding message
+    </div>
+  </div>
+  <div
+    class="body"
+  >
+    <ul
+      class="list"
+    >
+      <li
+        class="item"
+      >
+        <span
+          class="section"
+        >
+          headers
+        </span>
+        <span
+          class="separator"
+        >
+          :
+        </span>
+        <span
+          class="keys"
+        >
+          cache-control, vary
+        </span>
+        <span
+          class="note"
+        >
+           (
+          value changed
+          )
+        </span>
+      </li>
+    </ul>
+  </div>
+</div>
+`;
+
+exports[`FindingDetailView Snapshots matches snapshot with raw JSON fallback 1`] = `
+<div
+  class="container"
+>
+  <div
+    class="header"
+  >
+    <div
+      class="headerTop"
+    >
+      <div
+        class="headerContent"
+      >
+        <div
+          class="code"
+        >
+          STATUS_MISMATCH
+        </div>
+        <div
+          class="category"
+        >
+          routing
+        </div>
+        <div
+          class="badge badgeCritical"
+        >
+          🔴 Critical
+        </div>
+      </div>
+    </div>
+    <div
+      class="message"
+    >
+      Test finding message
+    </div>
+  </div>
+  <div
+    class="body"
+  >
+    <div
+      class="container"
+    >
+      <div
+        class="title"
+      >
+        Finding Data
+      </div>
+      <pre
+        class="pre"
+      >
+        <code
+          class="code"
+        >
+          {
+  "id": "test-finding-1",
+  "code": "STATUS_MISMATCH",
+  "category": "routing",
+  "severity": "critical",
+  "message": "Test finding message"
+}
+        </code>
+      </pre>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`FindingDetailView Snapshots matches snapshot with values only 1`] = `
+<div
+  class="container"
+>
+  <div
+    class="header"
+  >
+    <div
+      class="headerTop"
+    >
+      <div
+        class="headerContent"
+      >
+        <div
+          class="code"
+        >
+          STATUS_MISMATCH
+        </div>
+        <div
+          class="category"
+        >
+          routing
+        </div>
+        <div
+          class="badge badgeCritical"
+        >
+          🔴 Critical
+        </div>
+      </div>
+    </div>
+    <div
+      class="message"
+    >
+      Test finding message
+    </div>
+  </div>
+  <div
+    class="body"
+  >
+    <div
+      class="container"
+    >
+      <div
+        class="column"
+      >
+        <div
+          class="header"
+        >
+          Left
+        </div>
+        <div
+          class="container"
+        >
+          <pre
+            class="pre"
+          >
+            <code
+              class="code"
+            >
+              {
+  "status": 200
+}
+            </code>
+          </pre>
+        </div>
+      </div>
+      <div
+        class="column"
+      >
+        <div
+          class="header"
+        >
+          Right
+        </div>
+        <div
+          class="container"
+        >
+          <pre
+            class="pre"
+          >
+            <code
+              class="code"
+            >
+              {
+  "status": 404
+}
+            </code>
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div
+    class="recommendations"
+  >
+    <div
+      class="recommendationsTitle"
+    >
+      Recommendations
+    </div>
+    <ul
+      class="recommendationsList"
+    >
+      <li
+        class="recommendationItem"
+      >
+        Check redirect configuration
+      </li>
+    </ul>
+  </div>
+</div>
+`;

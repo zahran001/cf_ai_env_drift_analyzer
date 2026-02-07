@@ -6,6 +6,8 @@ import { ControlPlane } from "./components/ControlPlane";
 import { ProgressIndicator } from "./components/ProgressIndicator";
 import { SummaryStrip } from "./components/SummaryStrip";
 import { FindingsList } from "./components/FindingsList";
+import { FindingDetailView } from "./components/FindingDetailView";
+import { RawDataView } from "./components/RawDataView";
 
 export default function App() {
   const [comparisonId, setComparisonId] = useState<string | null>(null);
@@ -111,6 +113,34 @@ export default function App() {
                 />
               </div>
             )}
+
+            {/* Finding Detail View: Show expanded finding if selected */}
+            {expandedFindingId &&
+              poll.result.diff &&
+              "findings" in poll.result.diff && (
+                <div style={{ marginTop: 20 }}>
+                  {(() => {
+                    const finding = (
+                      poll.result.diff.findings as any[]
+                    ).find((f) => f.id === expandedFindingId);
+                    return finding ? (
+                      <FindingDetailView
+                        finding={finding}
+                        onClose={() => setExpandedFindingId(null)}
+                      />
+                    ) : null;
+                  })()}
+                </div>
+              )}
+
+            {/* Raw Data View: Forensic data inspection */}
+            <div style={{ marginTop: 20 }}>
+              <RawDataView
+                left={poll.result.left}
+                right={poll.result.right}
+                diff={poll.result.diff}
+              />
+            </div>
           </div>
         )}
       </div>

@@ -1,0 +1,37 @@
+.container {
+  padding: 16px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 12px;
+}
+
+.pre {
+  margin: 0;
+  padding: 12px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.code {
+  font-family: "Monaco", "Courier New", monospace;
+  color: #1f2937;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+@media (min-width: 481px) {
+  .pre {
+    padding: 14px;
+  }
+}
