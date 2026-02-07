@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import { useCallback, useState } from "react";
 
 const STORAGE_KEY = "cf-env-history";

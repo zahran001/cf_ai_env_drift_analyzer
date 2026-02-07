@@ -39,18 +39,16 @@ describe("useComparisonPoll", () => {
   test("transitions to running when comparisonId is set", async () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "running",
-      result: null,
-      error: null,
     });
 
     const { result, rerender } = renderHook(
       ({ id }: { id: string | null }) => useComparisonPoll(id),
-      { initialProps: { id: null } }
+      { initialProps: { id: null as string | null } }
     );
 
     expect(result.current.status).toBe("idle");
 
-    rerender({ id: "cmp-123" });
+    rerender({ id: "cmp-123" as string | null });
     expect(result.current.status).toBe("running");
   });
 
@@ -59,7 +57,6 @@ describe("useComparisonPoll", () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "completed",
       result: expectedResult,
-      error: null,
     });
 
     const { result } = renderHook(() => useComparisonPoll("cmp-123"));
@@ -80,7 +77,6 @@ describe("useComparisonPoll", () => {
     const error: CompareError = { code: "timeout" as const, message: "Request timed out" };
     mockGetCompareStatus.mockResolvedValue({
       status: "failed",
-      result: null,
       error,
     });
 
@@ -101,8 +97,6 @@ describe("useComparisonPoll", () => {
   test("treats queued status as running", async () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "queued",
-      result: null,
-      error: null,
     });
 
     const { result } = renderHook(() => useComparisonPoll("cmp-123"));
@@ -118,12 +112,11 @@ describe("useComparisonPoll", () => {
 
   test("supports backoff array [500, 1000, 2000]", async () => {
     mockGetCompareStatus
-      .mockResolvedValueOnce({ status: "running", result: null, error: null })
-      .mockResolvedValueOnce({ status: "running", result: null, error: null })
+      .mockResolvedValueOnce({ status: "running" })
+      .mockResolvedValueOnce({ status: "running" })
       .mockResolvedValueOnce({
         status: "completed",
         result: { data: "ok" },
-        error: null,
       });
 
     renderHook(() =>
@@ -158,8 +151,6 @@ describe("useComparisonPoll", () => {
   test("repeats last backoff interval after array exhausted", async () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "running",
-      result: null,
-      error: null,
     });
 
     renderHook(() =>
@@ -210,8 +201,6 @@ describe("useComparisonPoll", () => {
   test("supports single interval number", async () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "running",
-      result: null,
-      error: null,
     });
 
     renderHook(() => useComparisonPoll("cmp-123", 1000, 3));
@@ -244,8 +233,6 @@ describe("useComparisonPoll", () => {
   test("respects maxAttempts limit", async () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "running",
-      result: null,
-      error: null,
     });
 
     const { result } = renderHook(() =>
@@ -279,8 +266,6 @@ describe("useComparisonPoll", () => {
   test("tracks elapsed time during polling", async () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "running",
-      result: null,
-      error: null,
     });
 
     const { result } = renderHook(() => useComparisonPoll("cmp-123", 500));
@@ -309,8 +294,6 @@ describe("useComparisonPoll", () => {
   test("provides heuristic progress messages", async () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "running",
-      result: null,
-      error: null,
     });
 
     const { result } = renderHook(() => useComparisonPoll("cmp-123", 500));
@@ -349,7 +332,6 @@ describe("useComparisonPoll", () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "completed",
       result: { data: "ok" },
-      error: null,
     });
 
     const { result } = renderHook(() => useComparisonPoll("cmp-123", 500));
@@ -383,8 +365,6 @@ describe("useComparisonPoll", () => {
   test("cleanup on unmount cancels pending timers", async () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "running",
-      result: null,
-      error: null,
     });
 
     const { unmount } = renderHook(() => useComparisonPoll("cmp-123", 500));
@@ -406,13 +386,11 @@ describe("useComparisonPoll", () => {
   test("cleanup on comparisonId change cancels polling", async () => {
     mockGetCompareStatus.mockResolvedValue({
       status: "running",
-      result: null,
-      error: null,
     });
 
     const { rerender } = renderHook(
       ({ id }: { id: string | null }) => useComparisonPoll(id),
-      { initialProps: { id: "cmp-123" } }
+      { initialProps: { id: "cmp-123" as string | null } }
     );
 
     act(() => {
@@ -420,7 +398,7 @@ describe("useComparisonPoll", () => {
     });
     expect(mockGetCompareStatus).toHaveBeenCalledTimes(1);
 
-    rerender({ id: null });
+    rerender({ id: null as string | null });
 
     act(() => {
       jest.advanceTimersByTime(500);
@@ -433,7 +411,6 @@ describe("useComparisonPoll", () => {
     const error: CompareError = { code: "dns_error" as const, message: "DNS lookup failed" };
     mockGetCompareStatus.mockResolvedValue({
       status: "failed",
-      result: null,
       error,
     });
 
