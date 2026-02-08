@@ -1,44 +1,85 @@
 import { useState } from "react";
-import { startCompare } from "./lib/api";
+import type { CompareRequest, CompareResult, CompareError } from "@shared/api";
+import { startCompare, ApiError } from "./lib/api";
 import { useComparisonPoll } from "./hooks/useComparisonPoll";
 import { usePairHistory } from "./hooks/usePairHistory";
 import { ControlPlane } from "./components/ControlPlane";
 import { ProgressIndicator } from "./components/ProgressIndicator";
-import { SummaryStrip } from "./components/SummaryStrip";
-import { FindingsList } from "./components/FindingsList";
-import { FindingDetailView } from "./components/FindingDetailView";
-import { RawDataView } from "./components/RawDataView";
+import { ErrorBanner } from "./components/ErrorBanner";
+import { ResultDashboard } from "./components/ResultDashboard";
+import styles from "./App.module.css";
 
 export default function App() {
-  const [comparisonId, setComparisonId] = useState<string | null>(null);
-  const [expandedFindingId, setExpandedFindingId] = useState<string | null>(null);
+  // Form state (lifted for ControlPlane controlled component)
+  const [leftUrl, setLeftUrl] = useState("");
+  const [rightUrl, setRightUrl] = useState("");
+  const [leftLabel, setLeftLabel] = useState("");
+  const [rightLabel, setRightLabel] = useState("");
 
-  // Polling with exponential backoff: 500ms, 1000ms, 2000ms, then repeat 2000ms
-  const poll = useComparisonPoll<any>(comparisonId, [500, 1000, 2000]);
+  // Comparison state
+  const [comparisonId, setComparisonId] = useState<string | null>(null);
+
+  // Submit-time error (before polling starts)
+  const [submitError, setSubmitError] = useState<CompareError | null>(null);
+
+  // Polling with exponential backoff: 500ms, 1000ms, 2000ms
+  const poll = useComparisonPoll<CompareResult>(comparisonId, [500, 1000, 2000]);
   const { history } = usePairHistory();
 
-  async function handleCompareSubmit(req: any) {
+  async function handleCompareSubmit(req: CompareRequest) {
+    setSubmitError(null);
     setComparisonId(null);
-    setExpandedFindingId(null);
-    const { comparisonId } = await startCompare(req);
-    setComparisonId(comparisonId);
+    try {
+      const response = await startCompare(req);
+      setComparisonId(response.comparisonId);
+    } catch (err) {
+      // Extract CompareError from ApiError if available
+      if (err instanceof ApiError && err.compareError) {
+        setSubmitError(err.compareError);
+      } else {
+        setSubmitError({
+          code: "internal_error",
+          message: err instanceof Error ? err.message : "Failed to start comparison",
+        });
+      }
+    }
   }
 
-  /**
-   * Toggle semantics for finding expansion:
-   * - Click same finding → collapse it
-   * - Click different finding → expand the new one
-   */
-  function handleFindingClick(findingId: string) {
-    setExpandedFindingId((prev) => (prev === findingId ? null : findingId));
+  function handleDismissError() {
+    setSubmitError(null);
+    setComparisonId(null);
+  }
+
+  function handleHistoryClick(entry: {
+    leftUrl: string;
+    rightUrl: string;
+    leftLabel?: string;
+    rightLabel?: string;
+  }) {
+    setLeftUrl(entry.leftUrl);
+    setRightUrl(entry.rightUrl);
+    setLeftLabel(entry.leftLabel ?? "");
+    setRightLabel(entry.rightLabel ?? "");
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: "40px auto", padding: 16, fontFamily: "system-ui" }}>
-      <h1>cf_ai_env_drift_analyzer</h1>
-      <p>Compare two environments and get an explanation for drift (MVP UI).</p>
+    <div className={styles.container}>
+      <h1 className={styles.title}>cf_ai_env_drift_analyzer</h1>
+      <p className={styles.subtitle}>
+        Compare two environments and get an explanation for drift.
+      </p>
+
+      <ErrorBanner error={submitError ?? poll.error} onDismiss={handleDismissError} />
 
       <ControlPlane
+        leftUrl={leftUrl}
+        rightUrl={rightUrl}
+        leftLabel={leftLabel}
+        rightLabel={rightLabel}
+        onLeftUrlChange={setLeftUrl}
+        onRightUrlChange={setRightUrl}
+        onLeftLabelChange={setLeftLabel}
+        onRightLabelChange={setRightLabel}
         onSubmit={handleCompareSubmit}
         isLoading={poll.status === "running"}
       />
@@ -50,100 +91,28 @@ export default function App() {
       />
 
       {history.length > 0 && (
-        <div style={{ marginTop: 24, padding: 12, background: "#f6f8fa", borderRadius: 4 }}>
-          <div style={{ fontSize: 12, fontWeight: "bold", marginBottom: 8 }}>
-            Recent pairs:
-          </div>
-          <div style={{ display: "grid", gap: 4 }}>
+        <div className={styles.historySection}>
+          <div className={styles.historyTitle}>Recent pairs:</div>
+          <div className={styles.historyGrid}>
             {history.slice(0, 5).map((entry, i) => (
               <button
                 key={i}
-                onClick={() => {
-                  // History display only (ControlPlane now owns form state)
-                  // User would need to manually re-enter or we'd need state lifting
-                  console.log("Re-run:", entry);
-                }}
-                style={{
-                  textAlign: "left",
-                  padding: 8,
-                  background: "#fff",
-                  border: "1px solid #ddd",
-                  borderRadius: 3,
-                  cursor: "pointer",
-                  fontSize: 12,
-                }}
+                className={styles.historyButton}
+                onClick={() => handleHistoryClick(entry)}
               >
-                <div>
-                  {entry.leftLabel || entry.leftUrl} →{" "}
-                  {entry.rightLabel || entry.rightUrl}
-                </div>
+                {entry.leftLabel || entry.leftUrl} →{" "}
+                {entry.rightLabel || entry.rightUrl}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      <div style={{ marginTop: 20 }}>
-        <strong>Status:</strong> {poll.status}
-        {comparisonId && (
-          <div style={{ opacity: 0.7, marginTop: 6 }}>
-            comparisonId: <code>{comparisonId}</code>
-          </div>
-        )}
-
-        {poll.error && (
-          <pre style={{ marginTop: 12, padding: 12, background: "#fee" }}>
-            {typeof poll.error === "string"
-              ? poll.error
-              : `${poll.error.code}: ${poll.error.message}`}
-          </pre>
-        )}
-
-        {poll.status === "completed" && poll.result && (
-          <div style={{ marginTop: 20 }}>
-            <SummaryStrip result={poll.result} />
-
-            {/* Extract findings from result.diff if available */}
-            {poll.result.diff && "findings" in poll.result.diff && (
-              <div style={{ marginTop: 20 }}>
-                <FindingsList
-                  findings={poll.result.diff.findings || []}
-                  expandedId={expandedFindingId}
-                  onExpandClick={handleFindingClick}
-                />
-              </div>
-            )}
-
-            {/* Finding Detail View: Show expanded finding if selected */}
-            {expandedFindingId &&
-              poll.result.diff &&
-              "findings" in poll.result.diff && (
-                <div style={{ marginTop: 20 }}>
-                  {(() => {
-                    const finding = (
-                      poll.result.diff.findings as any[]
-                    ).find((f) => f.id === expandedFindingId);
-                    return finding ? (
-                      <FindingDetailView
-                        finding={finding}
-                        onClose={() => setExpandedFindingId(null)}
-                      />
-                    ) : null;
-                  })()}
-                </div>
-              )}
-
-            {/* Raw Data View: Forensic data inspection */}
-            <div style={{ marginTop: 20 }}>
-              <RawDataView
-                left={poll.result.left}
-                right={poll.result.right}
-                diff={poll.result.diff}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      {poll.status === "completed" && poll.result && (
+        <div className={styles.resultSection}>
+          <ResultDashboard result={poll.result} />
+        </div>
+      )}
     </div>
   );
 }

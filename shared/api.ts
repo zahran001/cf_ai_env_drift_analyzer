@@ -1,3 +1,7 @@
+import type { SignalEnvelope } from "./signal";
+import type { EnvDiff } from "./diff";
+import type { LlmExplanation } from "./llm";
+
 export type CompareRequest = {
   leftUrl: string;
   rightUrl: string;
@@ -56,37 +60,27 @@ export type CompareStatusResponse<ResultT = CompareResult> = {
 };
 
 /**
- * The canonical comparison output (filled out across phases).
- * In B1 we can define this now and populate pieces later.
- *
- * We’ll later replace "unknown" with:
- *   left: SignalEnvelope
- *   right: SignalEnvelope
- *   diff: EnvDiff
- *   explanation?: LlmExplanation
- */
-/**
  * Canonical comparison output (filled out across phases).
  *
- * left, right, diff, explanation are initially unknown until B2/B3 are complete.
- * In MVP, they are populated progressively:
+ * Fields are populated progressively by the backend:
  * - Phase B1: comparisonId, leftUrl, rightUrl, labels
  * - Phase B2: left, right (SignalEnvelope), diff (EnvDiff)
  * - Phase B3: explanation (LlmExplanation)
+ *
+ * All complex fields remain optional because the backend may not
+ * populate them until later phases are complete.
  */
 export type CompareResult = {
   comparisonId: string;
 
-  // Optional UI labels echoed back for convenience (DO can persist them).
   leftLabel?: string;
   rightLabel?: string;
 
   leftUrl: string;
   rightUrl: string;
 
-  // Reserved for phased rollout:
-  left?: unknown;
-  right?: unknown;
-  diff?: unknown;
-  explanation?: unknown; // Will be LlmExplanation once B3 is complete
+  left?: SignalEnvelope;
+  right?: SignalEnvelope;
+  diff?: EnvDiff;
+  explanation?: LlmExplanation;
 };

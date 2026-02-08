@@ -13,21 +13,8 @@
  */
 
 import type { EnvDiff } from "@shared/diff";
+import type { LlmExplanation } from "@shared/llm";
 import type { ComparisonState } from "../storage/envPairDO";
-
-export interface ExplainedComparison {
-  summary: string;
-  ranked_causes: Array<{
-    cause: string;
-    confidence: number;
-    evidence: string[];
-  }>;
-  actions: Array<{
-    action: string;
-    why: string;
-  }>;
-  notes?: string[];
-}
 
 /**
  * Explain diff using Workers AI (Llama 3.3).
@@ -45,7 +32,7 @@ export async function explainDiff(
   diff: EnvDiff,
   history: ComparisonState[],
   ai: Ai
-): Promise<ExplainedComparison> {
+): Promise<LlmExplanation> {
   // Build LLM prompt
   const prompt = buildPrompt(diff, history);
 
@@ -174,7 +161,7 @@ Requirements:
  *
  * Throws on validation failure.
  */
-function validateExplanation(explanation: unknown): ExplainedComparison {
+function validateExplanation(explanation: unknown): LlmExplanation {
   const obj = explanation as any;
 
   // Validate summary
@@ -213,7 +200,7 @@ function validateExplanation(explanation: unknown): ExplainedComparison {
     }
   }
 
-  return obj as ExplainedComparison;
+  return obj as LlmExplanation;
 }
 
 /**

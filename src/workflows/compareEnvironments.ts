@@ -36,6 +36,8 @@
 import { WorkflowEntrypoint } from "cloudflare:workers";
 import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import type { CfContextSnapshot, FrozenSignalEnvelope } from "@shared/signal";
+import type { CompareError, CompareResult } from "@shared/api";
+import type { LlmExplanation } from "@shared/llm";
 import type { Env } from "../env";
 import { activeProbeProvider } from "../providers/activeProbe";
 import { computeDiff } from "../analysis/diff";
@@ -45,6 +47,8 @@ export interface CompareEnvironmentsInput {
   comparisonId: string;
   leftUrl: string;
   rightUrl: string;
+  leftLabel?: string;
+  rightLabel?: string;
   pairKey: string;
   runnerContext: CfContextSnapshot;
 }
@@ -74,7 +78,7 @@ export class CompareEnvironments extends WorkflowEntrypoint<Env, CompareEnvironm
     console.log(`[Workflow::run] Input received:`, JSON.stringify(input));
     console.log(`[Workflow::run] Input keys:`, Object.keys(input));
 
-    const { comparisonId, leftUrl, rightUrl, pairKey, runnerContext } = input;
+    const { comparisonId, leftUrl, rightUrl, leftLabel, rightLabel, pairKey, runnerContext } = input;
     console.log(`[Workflow::run] Destructured - comparisonId=${comparisonId}, pairKey=${pairKey}`);
 
     try {
@@ -112,13 +116,14 @@ export class CompareEnvironments extends WorkflowEntrypoint<Env, CompareEnvironm
         }
       } catch (err) {
         // Fail comparison on probe error
+        const probeError: CompareError = {
+          code: "fetch_error",
+          message: `Left probe failed: ${String(err)}`,
+        };
         await step.do("failLeft", async () => {
           const doId = env.ENVPAIR_DO.idFromName(pairKey);
           const stub = env.ENVPAIR_DO.get(doId);
-          return (stub as any).failComparison(
-            comparisonId,
-            `Left probe failed: ${String(err)}`
-          );
+          return (stub as any).failComparison(comparisonId, probeError);
         });
         throw err;
       }
@@ -154,13 +159,14 @@ export class CompareEnvironments extends WorkflowEntrypoint<Env, CompareEnvironm
         }
       } catch (err) {
         // Fail comparison on probe error
+        const probeError: CompareError = {
+          code: "fetch_error",
+          message: `Right probe failed: ${String(err)}`,
+        };
         await step.do("failRight", async () => {
           const doId = env.ENVPAIR_DO.idFromName(pairKey);
           const stub = env.ENVPAIR_DO.get(doId);
-          return (stub as any).failComparison(
-            comparisonId,
-            `Right probe failed: ${String(err)}`
-          );
+          return (stub as any).failComparison(comparisonId, probeError);
         });
         throw err;
       }
@@ -230,13 +236,14 @@ export class CompareEnvironments extends WorkflowEntrypoint<Env, CompareEnvironm
 
           if (llmAttempts >= MAX_LLM_ATTEMPTS) {
             // All retries exhausted
+            const llmError: CompareError = {
+              code: "internal_error",
+              message: `LLM service unavailable after ${MAX_LLM_ATTEMPTS} attempts: ${errMsg}`,
+            };
             await step.do("failLLM", async () => {
               const doId = env.ENVPAIR_DO.idFromName(pairKey);
               const stub = env.ENVPAIR_DO.get(doId);
-              return (stub as any).failComparison(
-                comparisonId,
-                `LLM service unavailable after ${MAX_LLM_ATTEMPTS} attempts: ${errMsg}`
-              );
+              return (stub as any).failComparison(comparisonId, llmError);
             });
             throw err;
           }
@@ -256,17 +263,26 @@ export class CompareEnvironments extends WorkflowEntrypoint<Env, CompareEnvironm
       }
 
       // ===== STEP 11: Save Result =====
+      // Build full CompareResult per shared/api.ts contract.
+      // Includes all fields the frontend needs to render the dashboard.
       // ✅ IDEMPOTENT: no Date.now() or other non-deterministic values
-      // The DO handles createdAt timestamp once in createComparison
-      // Retries will upsert the same result without changing the stored timestamp
+
+      const compareResult: CompareResult = {
+        comparisonId,
+        leftUrl,
+        rightUrl,
+        leftLabel,
+        rightLabel,
+        left: leftEnvelope as any,
+        right: rightEnvelope as any,
+        diff,
+        explanation: explanation as LlmExplanation,
+      };
 
       await step.do("saveResult", async () => {
         const doId = env.ENVPAIR_DO.idFromName(pairKey);
         const stub = env.ENVPAIR_DO.get(doId);
-        return (stub as any).saveResult(comparisonId, {
-          diff,
-          explanation,
-        });
+        return (stub as any).saveResult(comparisonId, compareResult);
       });
 
       console.log(`[Workflow] Comparison ${comparisonId} completed`);
@@ -284,11 +300,15 @@ export class CompareEnvironments extends WorkflowEntrypoint<Env, CompareEnvironm
       );
 
       // Mark as failed in DO (if not already marked)
+      const workflowError: CompareError = {
+        code: "internal_error",
+        message: errorMessage,
+      };
       try {
         await step.do("failWorkflow", async () => {
           const doId = env.ENVPAIR_DO.idFromName(pairKey);
           const stub = env.ENVPAIR_DO.get(doId);
-          return (stub as any).failComparison(comparisonId, errorMessage);
+          return (stub as any).failComparison(comparisonId, workflowError);
         });
       } catch (doErr) {
         console.error(`[Workflow] Failed to mark comparison as failed: ${doErr}`);

@@ -108,13 +108,14 @@ export function useComparisonPoll<ResultT = unknown>(
           });
           return;
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Request failed.";
         setState({
           status: "failed",
           result: null,
           error: {
             code: "internal_error",
-            message: e?.message ?? "Request failed.",
+            message,
           },
         });
         return;

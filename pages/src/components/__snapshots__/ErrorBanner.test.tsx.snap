@@ -1,0 +1,34 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ErrorBanner snapshot: internal_error 1`] = `
+<div
+  class="container"
+  role="alert"
+>
+  <div
+    class="content"
+  >
+    <div
+      class="title"
+    >
+      Server Error
+    </div>
+    <div
+      class="guidance"
+    >
+      An unexpected error occurred on the backend. Please try again or contact support.
+    </div>
+    <div
+      class="detail"
+    >
+      Something went wrong.
+    </div>
+  </div>
+  <button
+    aria-label="Dismiss error"
+    class="dismiss"
+  >
+    ✕
+  </button>
+</div>
+`;

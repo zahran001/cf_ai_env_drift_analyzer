@@ -1,4 +1,5 @@
 import type { SignalEnvelope } from "@shared/signal";
+import type { CompareError } from "@shared/api";
 import { DurableObject } from "cloudflare:workers";
 
 /**
@@ -19,7 +20,7 @@ import { DurableObject } from "cloudflare:workers";
 export interface ComparisonState {
   status: "running" | "completed" | "failed";
   result?: unknown;
-  error?: string;
+  error?: CompareError;
 }
 
 export class EnvPairDO extends DurableObject {
@@ -239,22 +240,26 @@ export class EnvPairDO extends DurableObject {
   }
 
   /**
-   * Mark comparison as failed with error message.
+   * Mark comparison as failed with structured error.
    * Called by Workflow error handler (step 12) on any failure.
+   *
+   * Accepts CompareError object (with code + message) per shared/api.ts contract.
+   * Stored as JSON text in SQLite; deserialized on read in getComparison().
    *
    * IDEMPOTENCY: Calling twice:
    * - First call: UPDATE sets status='failed', error
    * - Retry call: UPDATE again (last error wins)
    */
-  async failComparison(comparisonId: string, error: string): Promise<void> {
+  async failComparison(comparisonId: string, error: CompareError): Promise<void> {
     await this.initializeSchema();
+    const errorJson = JSON.stringify(error);
 
     // ✅ CORRECT: Use DO SQLite .exec() API (not D1 .prepare().bind().run())
     this.getDb().exec(
       `UPDATE comparisons
        SET status = 'failed', error = ?
        WHERE id = ?`,
-      error,
+      errorJson,
       comparisonId
     );
   }
@@ -304,6 +309,10 @@ export class EnvPairDO extends DurableObject {
         console.warn(
           `[DO] Comparison ${comparisonId} is stale (${Math.round(age / 1000)}s old), marking as failed`
         );
+        const staleError: CompareError = {
+          code: "timeout",
+          message: "Stale comparison (workflow terminated or lost)",
+        };
         // Update the comparison to failed state
         // Clear result_json for consistency (failed comparisons have no result)
         this.getDb().exec(
@@ -311,13 +320,13 @@ export class EnvPairDO extends DurableObject {
            SET status = ?, error = ?, result_json = NULL
            WHERE id = ?`,
           "failed",
-          "stale comparison (workflow terminated or lost)",
+          JSON.stringify(staleError),
           comparisonId
         );
         // Return the updated state
         return {
           status: "failed",
-          error: "stale comparison (workflow terminated or lost)",
+          error: staleError,
         };
       }
     }
@@ -328,7 +337,13 @@ export class EnvPairDO extends DurableObject {
       state.result = JSON.parse(row.result_json);
     }
     if (row.error) {
-      state.error = row.error;
+      try {
+        state.error = JSON.parse(row.error) as CompareError;
+      } catch {
+        // Legacy fallback: if error is a plain string (pre-migration data),
+        // wrap it in a CompareError object
+        state.error = { code: "internal_error", message: row.error };
+      }
     }
 
     return state;
@@ -361,7 +376,11 @@ export class EnvPairDO extends DurableObject {
         state.result = JSON.parse(row.result_json);
       }
       if (row.error) {
-        state.error = row.error;
+        try {
+          state.error = JSON.parse(row.error) as CompareError;
+        } catch {
+          state.error = { code: "internal_error", message: row.error };
+        }
       }
       return state;
     });

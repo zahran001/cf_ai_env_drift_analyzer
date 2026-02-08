@@ -2,8 +2,8 @@
 
 **Authority:** This document defines the complete component contract inventory for the frontend. Extracted from `../../UI_IMPLEMENTATION_PLAN.md` (Section 2.1 Component Hierarchy, Parts 3C–3G).
 
-**Last Updated:** 2026-02-05
-**Status:** MVP Blueprint
+**Last Updated:** 2026-02-07
+**Status:** MVP Blueprint (type contracts synced with shared/ on 2026-02-07)
 
 ---
 
@@ -309,14 +309,18 @@ interface FindingDetailViewProps {
 - ✅ Recommendations (if present)
 - ✅ Close button or escape key handler
 
-**Type Contract (Graceful Degradation):**
+**Type Contract (Graceful Degradation) — Updated 2026-02-07:**
 ```typescript
-// All fields are OPTIONAL
+// Actual DiffEvidence shape from shared/diff.ts
+interface DiffEvidence {
+  section: "status" | "finalUrl" | "headers" | "redirects" | "content" | "timing" | "cf" | "probe";
+  keys?: string[];
+  note?: string;
+}
+
+// All fields are OPTIONAL on DiffFinding
 interface DiffFinding {
-  evidence?: Array<{
-    point: string;
-    source: "left" | "right" | "both";
-  }>;
+  evidence?: DiffEvidence[];    // Structured evidence (NOT string[])
   left_value?: unknown;
   right_value?: unknown;
   recommendations?: string[];
@@ -374,24 +378,36 @@ interface RawDataViewProps {
 - ✅ Expand/collapse all button
 - ✅ Pretty-printed JSON (2-space indent)
 
-**Type Contract:**
+**Type Contract — Updated 2026-02-07 (from shared/signal.ts and shared/diff.ts):**
 ```typescript
+// Actual SignalEnvelope from shared/signal.ts
 interface SignalEnvelope {
-  schema_version: string;
-  timestamp: number;
-  environment: { id: string; label?: string; target_url: string };
-  runner_context: { colo?: string; asn?: number; country?: string };
-  routing: { redirect_chain: string[]; final_url: string };
-  response: { status: number; headers: Record<string, string> };
-  timing: { duration_ms: number };
+  schemaVersion: 1;
+  comparisonId: string;
+  probeId: string;
+  side: "left" | "right";
+  requestedUrl: string;
+  capturedAt: string;       // ISO 8601
+  cf?: CfContextSnapshot;   // { colo?, country?, asn?, ... }
+  result: ProbeResult;       // ProbeSuccess | ProbeResponseError | ProbeNetworkFailure
 }
 
+// Actual EnvDiff from shared/diff.ts
 interface EnvDiff {
-  routing: { redirect_chain_diffs: Change[]; final_url_diff?: Change; status_diff?: Change };
-  security: { cors_header_diffs: Change[]; auth_indicators: AuthSignal[] };
-  cache: { cache_control_diff?: Change; vary_diff?: Change };
-  timing: { duration_delta_ms: number; classification: "faster" | "slower" | "same" };
+  schemaVersion: 1;
+  comparisonId: string;
+  leftProbeId: string;
+  rightProbeId: string;
+  probe: ProbeOutcomeDiff;
+  status?: Change<number>;
+  finalUrl?: Change<string>;
+  headers?: { core: HeaderDiff; accessControl?: HeaderDiff };
+  redirects?: RedirectDiff;
+  content?: ContentDiff;
+  timing?: TimingDiff;
+  cf?: CfContextDiff;
   findings: DiffFinding[];
+  maxSeverity: Severity;
 }
 ```
 

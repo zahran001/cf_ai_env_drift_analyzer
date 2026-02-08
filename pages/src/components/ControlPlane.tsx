@@ -3,12 +3,22 @@ import type { CompareRequest } from "@shared/api";
 import styles from "./ControlPlane.module.css";
 
 export interface ControlPlaneProps {
+  leftUrl: string;
+  rightUrl: string;
+  leftLabel?: string;
+  rightLabel?: string;
+  onLeftUrlChange: (value: string) => void;
+  onRightUrlChange: (value: string) => void;
+  onLeftLabelChange: (value: string) => void;
+  onRightLabelChange: (value: string) => void;
   onSubmit: (req: CompareRequest) => void;
   isLoading: boolean;
 }
 
 /**
  * ControlPlane: Input header for URLs, labels, swap button, and submit.
+ *
+ * Controlled component — parent owns all form state via props + onChange callbacks.
  *
  * Features:
  * - Two URL input fields (left and right, required)
@@ -19,19 +29,21 @@ export interface ControlPlaneProps {
  * - Form validation (both URLs required)
  *
  * Rendering:
- * - Single column on mobile (320–480px)
+ * - Single column on mobile (320-480px)
  * - Side-by-side on tablet+ (481px+)
- *
- * Note: ControlPlane owns all form state internally; only emits CompareRequest on submit
  */
 export function ControlPlane({
+  leftUrl,
+  rightUrl,
+  leftLabel = "",
+  rightLabel = "",
+  onLeftUrlChange,
+  onRightUrlChange,
+  onLeftLabelChange,
+  onRightLabelChange,
   onSubmit,
   isLoading,
 }: ControlPlaneProps) {
-  const [leftUrl, setLeftUrl] = useState("");
-  const [rightUrl, setRightUrl] = useState("");
-  const [leftLabel, setLeftLabel] = useState("");
-  const [rightLabel, setRightLabel] = useState("");
   const [showPrivateWarning, setShowPrivateWarning] = useState(false);
   const [privateWarningMessage, setPrivateWarningMessage] = useState("");
 
@@ -53,21 +65,21 @@ export function ControlPlane({
   };
 
   const handleSwap = () => {
-    setLeftUrl(rightUrl);
-    setRightUrl(leftUrl);
-    setLeftLabel(rightLabel);
-    setRightLabel(leftLabel);
+    const tmpLeftUrl = leftUrl;
+    const tmpLeftLabel = leftLabel;
+    onLeftUrlChange(rightUrl);
+    onRightUrlChange(tmpLeftUrl);
+    onLeftLabelChange(rightLabel);
+    onRightLabelChange(tmpLeftLabel);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate URLs are provided
     if (!leftUrl.trim() || !rightUrl.trim()) {
       return;
     }
 
-    // Client-side preflight warning for private IPs (non-blocking, inline)
     const leftIsPrivate = isPrivate(leftUrl);
     const rightIsPrivate = isPrivate(rightUrl);
 
@@ -75,17 +87,18 @@ export function ControlPlane({
       const urls = [];
       if (leftIsPrivate) urls.push("left");
       if (rightIsPrivate) urls.push("right");
-      setPrivateWarningMessage(`${urls.join(" and ")} URL appears to be private/local`);
+      setPrivateWarningMessage(
+        `${urls.join(" and ")} URL appears to be private/local`
+      );
       setShowPrivateWarning(true);
       return;
     }
 
-    // Submit the comparison request
     onSubmit({
       leftUrl: leftUrl.trim(),
       rightUrl: rightUrl.trim(),
-      leftLabel: (leftLabel?.trim()) || undefined,
-      rightLabel: (rightLabel?.trim()) || undefined,
+      leftLabel: leftLabel.trim() || undefined,
+      rightLabel: rightLabel.trim() || undefined,
     });
   };
 
@@ -105,7 +118,7 @@ export function ControlPlane({
             className={styles.urlInput}
             placeholder="https://staging.example.com/api/health"
             value={leftUrl}
-            onChange={(e) => setLeftUrl(e.target.value)}
+            onChange={(e) => onLeftUrlChange(e.target.value)}
             disabled={isLoading}
             required
           />
@@ -118,7 +131,7 @@ export function ControlPlane({
             className={styles.textInput}
             placeholder="e.g., Staging"
             value={leftLabel}
-            onChange={(e) => setLeftLabel(e.target.value)}
+            onChange={(e) => onLeftLabelChange(e.target.value)}
             disabled={isLoading}
           />
         </div>
@@ -134,7 +147,7 @@ export function ControlPlane({
             className={styles.urlInput}
             placeholder="https://prod.example.com/api/health"
             value={rightUrl}
-            onChange={(e) => setRightUrl(e.target.value)}
+            onChange={(e) => onRightUrlChange(e.target.value)}
             disabled={isLoading}
             required
           />
@@ -147,7 +160,7 @@ export function ControlPlane({
             className={styles.textInput}
             placeholder="e.g., Production"
             value={rightLabel}
-            onChange={(e) => setRightLabel(e.target.value)}
+            onChange={(e) => onRightLabelChange(e.target.value)}
             disabled={isLoading}
           />
         </div>
