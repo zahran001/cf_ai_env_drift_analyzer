@@ -2,8 +2,8 @@
   padding: 16px;
   background-color: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  margin-bottom: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
 }
 
 .content {
@@ -13,7 +13,7 @@
 }
 
 .cause {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #1f2937;
   margin: 0;
@@ -26,7 +26,7 @@
 }
 
 .confidenceLabel {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: #6b7280;
   text-transform: uppercase;
@@ -39,7 +39,7 @@
 }
 
 .evidenceLabel {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #6b7280;
   text-transform: uppercase;
@@ -49,7 +49,7 @@
 
 .evidenceList {
   margin: 0;
-  padding-left: 20px;
+  padding-left: 24px;
   list-style-type: disc;
 }
 
@@ -57,25 +57,20 @@
   font-size: 14px;
   color: #374151;
   line-height: 1.5;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .evidenceItem:last-child {
   margin-bottom: 0;
 }
 
-/* Mobile styling */
+/* Mobile */
 @media (max-width: 480px) {
   .container {
     padding: 12px;
-    margin-bottom: 10px;
   }
 
   .cause {
-    font-size: 15px;
-  }
-
-  .confidenceWrapper {
-    gap: 6px;
+    font-size: 14px;
   }
 }

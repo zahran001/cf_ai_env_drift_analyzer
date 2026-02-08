@@ -1,13 +1,13 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 4px;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 6px;
   background-color: #f3f4f6;
   border: 1px solid #e5e7eb;
-  font-family: "Courier New", monospace;
-  font-size: 14px;
+  font-family: "SF Mono", "Monaco", "Cascadia Code", "Courier New", monospace;
+  font-size: 13px;
   font-weight: 500;
   color: #1f2937;
 }
@@ -20,5 +20,5 @@
 .duration {
   font-weight: 400;
   color: #6b7280;
-  font-size: 13px;
+  font-size: 12px;
 }

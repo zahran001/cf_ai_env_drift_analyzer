@@ -1,6 +1,6 @@
 .container {
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
   background-color: #ffffff;
 }
@@ -27,7 +27,7 @@
   padding: 0;
   gap: 8px;
   text-align: left;
-  transition: background-color 0.15s ease;
+  transition: opacity 150ms ease;
 }
 
 .headerButton:hover {
@@ -46,6 +46,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 150ms ease;
 }
 
 .title {
@@ -63,7 +64,7 @@
   font-size: 12px;
   color: #6b7280;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
   flex-shrink: 0;
 }
 
@@ -79,7 +80,7 @@
 
 .content {
   padding: 16px;
-  animation: slideDown 0.2s ease-out;
+  animation: slideDown 200ms ease-out;
 }
 
 @keyframes slideDown {
@@ -95,10 +96,16 @@
 
 @media (min-width: 481px) {
   .header {
-    padding: 14px 18px;
+    padding: 12px 20px;
   }
 
   .content {
-    padding: 18px;
+    padding: 20px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .content {
+    padding: 24px;
   }
 }

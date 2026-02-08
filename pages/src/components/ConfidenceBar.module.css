@@ -1,7 +1,7 @@
 .container {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .barBackground {
@@ -20,9 +20,9 @@
 }
 
 .percentage {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #1f2937;
-  min-width: 36px;
+  min-width: 40px;
   text-align: right;
 }

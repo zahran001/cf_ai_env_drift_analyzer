@@ -5,23 +5,25 @@
   padding: 12px 16px;
   background-color: #ffffff;
   border: none;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #f3f4f6;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color 150ms ease;
   text-align: left;
   font-size: 14px;
+  width: 100%;
 }
 
 .row:hover {
-  background-color: #f3f4f6;
+  background-color: #f9fafb;
 }
 
 .row:active {
-  background-color: #e5e7eb;
+  background-color: #f3f4f6;
 }
 
 .row.rowExpanded {
-  background-color: #dbeafe;
+  background-color: #eff6ff;
+  border-bottom-color: #dbeafe;
 }
 
 .icon {
@@ -41,7 +43,7 @@
   font-size: 13px;
   font-weight: 600;
   color: #1f2937;
-  font-family: "Monaco", "Courier New", monospace;
+  font-family: "SF Mono", "Monaco", "Cascadia Code", "Courier New", monospace;
   word-break: break-word;
 }
 
@@ -57,17 +59,17 @@
   font-size: 12px;
   color: #9ca3af;
   margin-top: 3px;
+  transition: transform 200ms ease;
 }
 
-/* Mobile-first responsive */
+/* Tablet+ */
 @media (min-width: 481px) {
   .row {
-    padding: 14px 18px;
-    gap: 14px;
+    padding: 12px 20px;
   }
 
   .code {
-    font-size: 14px;
+    font-size: 13px;
   }
 
   .message {
@@ -75,17 +77,9 @@
   }
 }
 
+/* Desktop */
 @media (min-width: 1025px) {
   .row {
-    padding: 16px 20px;
-  }
-
-  .code {
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  .message {
-    font-size: 14px;
+    padding: 12px 24px;
   }
 }

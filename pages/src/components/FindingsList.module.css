@@ -1,11 +1,12 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  gap: 0;
+  padding: 0;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  background-color: #f9fafb;
+  background-color: #ffffff;
+  overflow: hidden;
 }
 
 .header {
@@ -13,34 +14,16 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  margin-bottom: 8px;
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f9fafb;
 }
 
 .title {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #1f2937;
-}
-
-.expandAllButton {
-  padding: 8px 12px;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.expandAllButton:hover {
-  background-color: #1d4ed8;
-}
-
-.expandAllButton:active {
-  background-color: #1e40af;
 }
 
 .groups {
@@ -55,12 +38,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 8px;
   padding: 32px 16px;
   text-align: center;
-  background-color: #f9fafb;
-  border: 1px dashed #d1d5db;
-  border-radius: 8px;
 }
 
 .noFindingsIcon {
@@ -69,28 +49,25 @@
 }
 
 .noFindingsText {
-  font-size: 16px;
+  font-size: 15px;
   color: #6b7280;
   font-weight: 500;
 }
 
-/* Mobile-first responsive */
+/* Tablet+ */
 @media (min-width: 481px) {
-  .container {
-    padding: 20px;
-  }
-
   .header {
-    margin-bottom: 12px;
+    padding: 16px 20px;
   }
 
   .title {
-    font-size: 20px;
+    font-size: 18px;
   }
 }
 
+/* Desktop */
 @media (min-width: 1025px) {
-  .container {
-    padding: 24px;
+  .header {
+    padding: 16px 24px;
   }
 }

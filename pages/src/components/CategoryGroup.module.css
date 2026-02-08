@@ -16,18 +16,19 @@
   background-color: #ffffff;
   border: none;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 150ms ease;
   text-align: left;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
+  width: 100%;
 }
 
 .header:hover {
-  background-color: #f3f4f6;
+  background-color: #f9fafb;
 }
 
 .header:active {
-  background-color: #e5e7eb;
+  background-color: #f3f4f6;
 }
 
 /* Category-specific header colors */
@@ -61,8 +62,8 @@
 
 .arrow {
   font-size: 12px;
-  margin-right: -6px;
-  transition: transform 0.2s ease;
+  margin-right: -4px;
+  transition: transform 200ms ease;
 }
 
 .categoryName {
@@ -76,8 +77,8 @@
   justify-content: center;
   min-width: 24px;
   height: 24px;
-  padding: 0 6px;
-  background-color: #e5e7eb;
+  padding: 0 8px;
+  background-color: #f3f4f6;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
@@ -88,27 +89,39 @@
   display: flex;
   flex-direction: column;
   background-color: #fafbfc;
+  animation: slideDown 0.2s ease-out;
 }
 
-/* Mobile-first responsive */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tablet+ */
 @media (min-width: 481px) {
   .header {
-    padding: 14px 18px;
+    padding: 12px 20px;
   }
 
   .categoryName {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .count {
     min-width: 28px;
     height: 28px;
-    padding: 0 8px;
   }
 }
 
+/* Desktop */
 @media (min-width: 1025px) {
   .header {
-    padding: 16px 20px;
+    padding: 12px 24px;
   }
 }

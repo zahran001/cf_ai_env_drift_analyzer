@@ -2,11 +2,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+  letter-spacing: 0.2px;
 }
 
 .badgeCritical {
@@ -16,10 +17,10 @@
 
 .badgeWarn {
   background-color: #fef3c7;
-  color: #f59e0b;
+  color: #b45309;
 }
 
 .badgeInfo {
   background-color: #dbeafe;
-  color: #3b82f6;
+  color: #2563eb;
 }

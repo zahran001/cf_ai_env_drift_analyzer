@@ -22,13 +22,13 @@
 }
 
 .separator {
-  margin: 0 4px;
+  margin: 0 8px;
   color: #9ca3af;
 }
 
 .keys {
   color: #374151;
-  font-family: "Monaco", "Courier New", monospace;
+  font-family: "SF Mono", "Monaco", "Cascadia Code", "Courier New", monospace;
   font-size: 13px;
 }
 
@@ -44,7 +44,7 @@
   color: #6b7280;
   background-color: #f9fafb;
   border: 1px dashed #d1d5db;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .empty p {
@@ -54,6 +54,6 @@
 
 @media (min-width: 481px) {
   .item {
-    padding: 14px 18px;
+    padding: 12px 20px;
   }
 }

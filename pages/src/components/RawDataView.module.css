@@ -5,19 +5,20 @@
   padding: 16px;
   background-color: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #1f2937;
+  letter-spacing: -0.2px;
 }
 
 .blocks {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 @media (min-width: 481px) {
@@ -26,6 +27,12 @@
   }
 
   .title {
-    font-size: 17px;
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 1025px) {
+  .container {
+    padding: 24px;
   }
 }

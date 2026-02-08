@@ -11,7 +11,7 @@
 }
 
 .header {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #6b7280;
   text-transform: uppercase;
@@ -24,7 +24,7 @@
   color: #9ca3af;
   background-color: #f9fafb;
   border: 1px dashed #d1d5db;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
 }
 
@@ -34,7 +34,7 @@
   color: #6b7280;
   background-color: #f9fafb;
   border: 1px dashed #d1d5db;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .empty p {
@@ -45,5 +45,11 @@
 @media (min-width: 481px) {
   .container {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1025px) {
+  .container {
+    gap: 24px;
   }
 }

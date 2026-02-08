@@ -5,8 +5,14 @@
   padding: 16px;
   background-color: #ffffff;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .header {
@@ -27,19 +33,19 @@
 .headerContent {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .code {
-  font-family: "Monaco", "Courier New", monospace;
+  font-family: "SF Mono", "Monaco", "Cascadia Code", "Courier New", monospace;
   font-size: 14px;
   font-weight: 600;
   color: #1f2937;
 }
 
 .category {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: #6b7280;
   text-transform: uppercase;
@@ -56,11 +62,13 @@
   color: #6b7280;
   font-size: 16px;
   cursor: pointer;
-  transition: color 0.15s ease;
+  transition: color 150ms ease;
+  border-radius: 4px;
 }
 
 .closeButton:hover {
   color: #1f2937;
+  background-color: #f3f4f6;
 }
 
 .message {
@@ -77,13 +85,13 @@
 .recommendations {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   padding-top: 12px;
   border-top: 1px solid #e5e7eb;
 }
 
 .recommendationsTitle {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #1f2937;
   text-transform: uppercase;
@@ -102,19 +110,26 @@
   font-size: 14px;
   color: #374151;
   border-left: 3px solid #3b82f6;
-  background-color: #dbeafe;
+  background-color: #eff6ff;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 4px;
 }
 
+.recommendationItem:last-child {
+  margin-bottom: 0;
+}
+
+/* Tablet+ */
 @media (min-width: 481px) {
   .container {
     padding: 20px;
   }
 
   .code {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .message {
-    font-size: 15px;
+    font-size: 14px;
   }
 }
