@@ -1,5 +1,7 @@
 # cf_ai_env_drift_analyzer
 
+**Live:** [https://cf-ai-drift-ui.pages.dev](https://cf-ai-drift-ui.pages.dev)
+
 An AI-powered agent that detects, explains, and remembers behavioral differences across application environments (local, staging, beta, production) to improve developer understanding and deployment confidence.
 
 ---
@@ -20,7 +22,7 @@ While developers can manually investigate these issues using browser tools, logs
 
 This project provides a single interface where developers can ask:
 
-> “Why does this request behave differently across environments?”
+> "Why does this request behave differently across environments?"
 
 Given two environments or URLs, the agent:
 - Collects observable request and response signals
@@ -57,25 +59,25 @@ The goal is not full automation, but faster and more reliable understanding for 
 
 ## Architecture Overview
 
-This project is built using Cloudflare’s edge-native platform:
+This project is built using Cloudflare's edge-native platform:
 
-- **Cloudflare Pages**  
+- **Cloudflare Pages**
   Provides a simple chat-based interface for developer interaction.
 
-- **Cloudflare Worker**  
+- **Cloudflare Worker**
   Acts as the API and agent entry point, routing requests and invoking Workers AI.
 
-- **Workers AI (Llama 3.3)**  
+- **Workers AI (Llama 3.3)**
   Performs reasoning, explanation generation, and recommendation synthesis.
 
-- **Cloudflare Workflows**  
+- **Cloudflare Workflows**
   Coordinates multi-step analysis, including:
   - Signal normalization
   - Environment comparison
   - Hypothesis generation
   - Explanation synthesis
 
-- **Durable Objects**  
+- **Durable Objects**
   Store environment-specific memory and historical comparisons, allowing the agent to retain knowledge over time.
 
 ---
@@ -127,3 +129,4 @@ The developer now understands *why* the behavior differs, not just *that* it dif
 ```bash
 npm run dev
 npm run dev:ui
+```

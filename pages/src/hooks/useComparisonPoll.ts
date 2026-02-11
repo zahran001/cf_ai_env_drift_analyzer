@@ -109,16 +109,24 @@ export function useComparisonPoll<ResultT = unknown>(
           return;
         }
       } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : "Request failed.";
-        setState({
-          status: "failed",
-          result: null,
-          error: {
-            code: "internal_error",
-            message,
-          },
-        });
-        return;
+        // 404 is transient during early polls — the Workflow may not have
+        // created the DO record yet. Keep polling instead of failing.
+        const isNotFound =
+          e instanceof Error && "status" in e && (e as { status: number }).status === 404;
+        if (isNotFound && attemptsRef.current <= 10) {
+          // Fall through to schedule next poll
+        } else {
+          const message = e instanceof Error ? e.message : "Request failed.";
+          setState({
+            status: "failed",
+            result: null,
+            error: {
+              code: "internal_error",
+              message,
+            },
+          });
+          return;
+        }
       }
 
       // Get next interval from backoff array (or repeat last)

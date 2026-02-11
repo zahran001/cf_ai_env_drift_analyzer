@@ -33,14 +33,14 @@ export async function explainDiff(
   history: ComparisonState[],
   ai: Ai
 ): Promise<LlmExplanation> {
-  // Build LLM prompt
-  const prompt = buildPrompt(diff, history);
+  // Build LLM messages (system + user roles for Llama 3.3 instruct)
+  const messages = buildMessages(diff, history);
 
-  // Call Workers AI (Llama 3.3)
+  // Call Workers AI (Llama 3.3) with messages format
   let llmResponse: any;
   try {
     llmResponse = await ai.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast" as any, {
-      prompt,
+      messages,
       max_tokens: 1024,
     });
   } catch (err) {
@@ -50,25 +50,31 @@ export async function explainDiff(
   console.log("Workers AI raw response:", llmResponse);
   console.log("Workers AI response type:", typeof llmResponse);
 
-  // Extract response (ai.run() returns { response, tool_calls, usage } directly)
+  // Extract response (ai.run() returns { response, tool_calls, usage })
+  // `response` may be a string (raw text) or an already-parsed object (valid JSON auto-parsed)
   const aiResult = (llmResponse as any)?.response;
-  if (typeof aiResult !== "string" || aiResult.trim().length === 0) {
-    throw new Error(`Workers AI response missing/empty response field: ${JSON.stringify(llmResponse)}`);
+  if (aiResult == null) {
+    throw new Error(`Workers AI response missing response field: ${JSON.stringify(llmResponse)}`);
   }
 
-  // Extract and parse LLM output as JSON
-  console.log("AI raw head:", aiResult.slice(0, 250));
-  const jsonText = extractFirstJsonObject(aiResult);
-  console.log("AI json head:", jsonText.slice(0, 250));
-
   let explanation: unknown;
-  try {
-    explanation = JSON.parse(jsonText);
-  } catch (err) {
-    throw new Error(
-      `LLM output is not valid JSON: ${String(err)}\n` +
-      `Extracted JSON head: ${jsonText.slice(0, 300)}`
-    );
+  if (typeof aiResult === "object") {
+    // Workers AI already parsed the JSON for us
+    explanation = aiResult;
+  } else if (typeof aiResult === "string" && aiResult.trim().length > 0) {
+    // Raw text — extract and parse JSON
+    console.log("AI raw head:", aiResult.slice(0, 250));
+    const jsonText = extractFirstJsonObject(aiResult);
+    try {
+      explanation = JSON.parse(jsonText);
+    } catch (err) {
+      throw new Error(
+        `LLM output is not valid JSON: ${String(err)}\n` +
+        `Extracted JSON head: ${jsonText.slice(0, 300)}`
+      );
+    }
+  } else {
+    throw new Error(`Workers AI response field is empty: ${JSON.stringify(llmResponse)}`);
   }
 
   // Validate structure
@@ -78,16 +84,18 @@ export async function explainDiff(
 }
 
 /**
- * Build prompt for LLM.
+ * Build messages array for LLM (system + user roles).
  *
- * Includes:
- * - Findings from diff (deterministic, truncated to prevent token overflow)
- * - Historical context (optional, truncated)
- * - Instructions to return JSON
+ * Using the messages format (not legacy `prompt`) ensures Llama 3.3 instruct
+ * correctly separates instructions from the data to analyze, preventing
+ * the model from echoing system instructions back in its response.
  */
-function buildPrompt(diff: EnvDiff, history: ComparisonState[]): string {
-  const MAX_FINDINGS_CHARS = 1500;  // ~300 words
-  const MAX_HISTORY_CHARS = 800;    // ~160 words
+function buildMessages(
+  diff: EnvDiff,
+  history: ComparisonState[]
+): Array<{ role: string; content: string }> {
+  const MAX_FINDINGS_CHARS = 1500;
+  const MAX_HISTORY_CHARS = 800;
 
   // Build findings summary and truncate if too long
   let findingsSummary = diff.findings
@@ -109,44 +117,35 @@ function buildPrompt(diff: EnvDiff, history: ComparisonState[]): string {
       })
       .join("\n");
 
-    historySummary = `\n\nRecent similar comparisons:\n${historyLines}`;
+    historySummary = `\nRecent similar comparisons:\n${historyLines}`;
     if (historySummary.length > MAX_HISTORY_CHARS) {
       historySummary = historySummary.slice(0, MAX_HISTORY_CHARS) + "\n... (truncated)";
     }
   }
 
-  return `You are analyzing differences between two environments based on deterministic findings.
+  const systemMessage = `You are an environment drift analyzer. You receive deterministic findings comparing two web environments and produce a structured JSON explanation.
+
+Respond with ONLY a raw JSON object. No preamble, no markdown, no code fences, no trailing text.
+
+Required JSON structure:
+{"summary":"string","ranked_causes":[{"cause":"string","confidence":number,"evidence":["string"]}],"actions":[{"action":"string","why":"string"}],"notes":["string"]}
+
+Rules:
+- confidence must be a number between 0 and 1
+- base explanations on the provided findings only, not speculation
+- if probes failed, explain the failure clearly
+- keep explanations concise and technical`;
+
+  const userMessage = `Analyze these environment comparison findings and return the JSON explanation.
 
 FINDINGS:
 ${findingsSummary || "(No findings)"}
+${historySummary}`;
 
-${historySummary}
-
-Provide ONLY a valid JSON object matching this structure. Do not include any preamble, markdown formatting (like \`\`\`json), code blocks, or trailing text. Return the raw JSON object directly:
-
-{
-  "summary": "One-sentence summary of the key difference",
-  "ranked_causes": [
-    {
-      "cause": "Root cause explanation",
-      "confidence": 0.95,
-      "evidence": ["evidence1", "evidence2"]
-    }
-  ],
-  "actions": [
-    {
-      "action": "Recommended action",
-      "why": "Why this action helps"
-    }
-  ],
-  "notes": ["Optional context notes"]
-}
-
-Requirements:
-- confidence must be a number between 0 and 1
-- base explanations on the provided findings, not speculation
-- if probes failed, explain the failure clearly
-- keep explanations concise and technical`;
+  return [
+    { role: "system", content: systemMessage },
+    { role: "user", content: userMessage },
+  ];
 }
 
 /**
