@@ -541,12 +541,8 @@ Frontend is intentionally minimal and comes first; this document starts after fr
   - `ranked_causes[]` (cause, confidence, evidence)
   - `actions[]` (action, why)
 - [ ] Parse + validate output
-- [ ] Update `PROMPTS.md` with exact prompts used
-
 ### Deliverables
-- `src/llm/explain.ts`
-- `src/llm/prompts.ts`
-- `PROMPTS.md` updated
+- `src/llm/explain.ts` (orchestration, prompt building, and JSON validation)
 
 ### Acceptance Criteria
 - Given a known diff object, LLM returns valid structured JSON consistently (or fails gracefully).

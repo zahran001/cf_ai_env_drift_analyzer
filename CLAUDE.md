@@ -304,8 +304,7 @@ CREATE TABLE probes (
 **Responsibility:** Convert diff + history to structured explanation.
 
 **Files:**
-- `src/llm/explain.ts` - orchestration and JSON validation
-- `src/llm/prompts.ts` - prompt building (update PROMPTS.md after changes)
+- `src/llm/explain.ts` - orchestration, prompt building, and JSON validation
 
 **Invariants:**
 - Must receive EnvDiff as input (never raw signals)
@@ -815,7 +814,6 @@ Before merging any PR:
 - [ ] Frontend only polls DO via Worker API
 - [ ] URL validation rejects private IPs
 - [ ] Redirect algorithm uses redirect: "manual"
-- [ ] PROMPTS.md updated if LLM prompt changed
 - [ ] No new module imports across /pages <-> /src boundary
 - [ ] Types added to /shared, not duplicated
 
