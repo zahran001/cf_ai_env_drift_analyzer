@@ -10,7 +10,6 @@ port = 8787
 [[durable_objects.bindings]]
 name = "ENVPAIR_DO"
 class_name = "EnvPairDO"
-script_name = "cf_ai_env_drift_analyzer"
 
 # Durable Object class versioning with SQLite support
 # Required for Cloudflare to track DO class changes across deployments
@@ -29,3 +28,6 @@ binding = "AI"
 name = "COMPARE_WORKFLOW"
 binding = "COMPARE_WORKFLOW"
 class_name = "CompareEnvironments"
+
+[vars]
+ALLOWED_ORIGIN = "https://cf-ai-drift-ui.pages.dev"

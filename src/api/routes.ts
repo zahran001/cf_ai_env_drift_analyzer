@@ -4,20 +4,20 @@ import type { CfContextSnapshot } from "@shared/signal";
 import { computePairKeySHA256 } from "../utils/pairKey";
 import { validateProbeUrl } from "./validate";
 
-/**
- * CORS headers for local development.
- * In production (same-domain Pages routing), these are harmless.
- */
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+/** Build CORS headers using env.ALLOWED_ORIGIN (falls back to "*" for local dev). */
+function getCorsHeaders(env: Env): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": env.ALLOWED_ORIGIN || "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+}
 
 /** Wrap Response.json with CORS headers. */
-function jsonResponse(data: unknown, init?: ResponseInit): Response {
+function jsonResponse(env: Env, data: unknown, init?: ResponseInit): Response {
+  const corsHeaders = getCorsHeaders(env);
   const headers = new Headers(init?.headers);
-  for (const [k, v] of Object.entries(CORS_HEADERS)) {
+  for (const [k, v] of Object.entries(corsHeaders)) {
     headers.set(k, v);
   }
   return new Response(JSON.stringify(data), {
@@ -29,10 +29,11 @@ function jsonResponse(data: unknown, init?: ResponseInit): Response {
 
 /** Build a CompareError-shaped error response. */
 function errorResponse(
+  env: Env,
   error: CompareError,
   status: number
 ): Response {
-  return jsonResponse({ error }, { status });
+  return jsonResponse(env, { error }, { status });
 }
 
 /**
@@ -64,12 +65,12 @@ export async function router(request: Request, env: Env): Promise<Response> {
 
   // Handle CORS preflight
   if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return new Response(null, { status: 204, headers: getCorsHeaders(env) });
   }
 
   // Health check endpoint
   if (request.method === "GET" && url.pathname === "/api/health") {
-    return jsonResponse({ ok: true });
+    return jsonResponse(env, { ok: true });
   }
 
   // POST /api/compare - Start a new comparison
@@ -115,6 +116,7 @@ async function handlePostCompare(request: Request, env: Env): Promise<Response> 
     if (!leftUrl || !rightUrl) {
       console.log(`[Worker] ERROR: Missing leftUrl or rightUrl`);
       return errorResponse(
+        env,
         { code: "invalid_request", message: "Missing leftUrl or rightUrl" },
         400
       );
@@ -127,6 +129,7 @@ async function handlePostCompare(request: Request, env: Env): Promise<Response> 
       console.log(`[Worker] ERROR: Invalid leftUrl: ${leftValidation.reason}`);
       const code = classifyValidationError(leftValidation.reason);
       return errorResponse(
+        env,
         { code, message: `Invalid leftUrl: ${leftValidation.reason}` },
         400
       );
@@ -138,6 +141,7 @@ async function handlePostCompare(request: Request, env: Env): Promise<Response> 
       console.log(`[Worker] ERROR: Invalid rightUrl: ${rightValidation.reason}`);
       const code = classifyValidationError(rightValidation.reason);
       return errorResponse(
+        env,
         { code, message: `Invalid rightUrl: ${rightValidation.reason}` },
         400
       );
@@ -179,13 +183,14 @@ async function handlePostCompare(request: Request, env: Env): Promise<Response> 
 
     console.log(`[Worker] Started workflow ${comparisonId} for ${leftUrl} <-> ${rightUrl}`);
 
-    return jsonResponse({ comparisonId }, { status: 202 });
+    return jsonResponse(env, { comparisonId }, { status: 202 });
   } catch (err) {
     console.error(`[Worker] CAUGHT ERROR:`, err);
     if (err instanceof Error) {
       console.error(`[Worker] Error stack:`, err.stack);
     }
     return errorResponse(
+      env,
       { code: "internal_error", message: `Failed to start comparison: ${String(err)}` },
       500
     );
@@ -234,6 +239,7 @@ async function handleGetCompareStatus(
 
     if (!pairKeyPrefix) {
       return errorResponse(
+        env,
         { code: "invalid_request", message: "Invalid comparisonId format" },
         400
       );
@@ -248,14 +254,16 @@ async function handleGetCompareStatus(
 
     if (!state) {
       return errorResponse(
+        env,
         { code: "invalid_request", message: "Comparison not found" },
         404
       );
     }
 
-    return jsonResponse(state, { status: 200 });
+    return jsonResponse(env, state, { status: 200 });
   } catch (err) {
     return errorResponse(
+      env,
       { code: "internal_error", message: `Failed to poll comparison: ${String(err)}` },
       500
     );

@@ -1,0 +1,6 @@
+name = "cf-ai-drift-ui"
+pages_build_output_dir = "dist"
+
+[[services]]
+binding = "API"
+service = "cf_ai_env_drift_analyzer"

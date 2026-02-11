@@ -10,7 +10,11 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "verify": "npm run type-check && npm test",
+    "verify": "npm run type-check && npm test && npm --prefix pages run build && npm --prefix pages test",
+    "verify:backend": "npm run type-check && npm test",
+    "verify:frontend": "npm --prefix pages run build && npm --prefix pages test",
+    "pages:build": "npm --prefix pages run build",
+    "pages:deploy": "npx wrangler pages deploy pages/dist --project-name cf-ai-drift-ui",
     "dev:ui": "npm --prefix pages run dev"
   },
   "devDependencies": {

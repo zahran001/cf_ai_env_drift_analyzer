@@ -14,4 +14,7 @@ export interface Env {
 
   // Workflows binding for comparison orchestration
   COMPARE_WORKFLOW: Workflow<CompareEnvironmentsInput>;
+
+  // CORS origin lock. Set in wrangler.toml [vars]. Falls back to "*" for local dev.
+  ALLOWED_ORIGIN?: string;
 }
