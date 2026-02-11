@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "deploy": "npx wrangler pages deploy dist --project-name cf-ai-drift-ui"
   },
   "dependencies": {
     "react": "^19.2.0",

@@ -1,9 +1,4 @@
-interface FuncEnv {
-  API: Fetcher; // Service Binding to the Worker
-}
-
-export const onRequest: PagesFunction<FuncEnv> = async (context) => {
-  const url = new URL(context.request.url);
-  const apiPath = url.pathname + url.search;
-  return context.env.API.fetch(new URL(apiPath, "https://dummy").toString(), context.request);
+export const onRequest: PagesFunction<{ API: Fetcher }> = async (context) => {
+  // Pass the exact original request directly to the backend Worker
+  return context.env.API.fetch(context.request.clone() as unknown as Request);
 };
