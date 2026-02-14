@@ -148,7 +148,9 @@ describe("FindingsList", () => {
         <FindingsList findings={findings} expandedId="finding-1" onExpandClick={jest.fn()} />
       );
 
-      row = screen.getByText("STATUS_MISMATCH").closest("button");
+      // When expanded, the code appears in both the row and the inline detail view
+      const matches = screen.getAllByText("STATUS_MISMATCH");
+      row = matches[0].closest("button");
       expect(row).toHaveClass("rowExpanded");
     });
 

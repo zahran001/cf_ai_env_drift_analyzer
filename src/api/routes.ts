@@ -84,6 +84,16 @@ export async function router(request: Request, env: Env): Promise<Response> {
     return handleGetCompareStatus(comparisonId, env);
   }
 
+  // GET /api/demo/staging - Demo endpoint simulating a clean staging environment
+  if (request.method === "GET" && url.pathname === "/api/demo/staging") {
+    return handleDemoStaging();
+  }
+
+  // GET /api/demo/production - Demo endpoint simulating production with drift
+  if (request.method === "GET" && url.pathname === "/api/demo/production") {
+    return handleDemoProduction();
+  }
+
   return new Response("Not found", { status: 404 });
 }
 
@@ -195,6 +205,61 @@ async function handlePostCompare(request: Request, env: Env): Promise<Response> 
       500
     );
   }
+}
+
+/**
+ * GET /api/demo/staging — Simulates a clean staging environment.
+ *
+ * Returns minimal headers to contrast with the production demo endpoint.
+ * CORS headers are set explicitly (not via getCorsHeaders) so that drift
+ * is deterministic and immune to infrastructure CORS refactors.
+ */
+function handleDemoStaging(): Response {
+  return new Response(
+    JSON.stringify({ env: "staging", version: "2.1.0", status: "healthy" }),
+    {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+        "vary": "Accept",
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET",
+      },
+    }
+  );
+}
+
+/**
+ * GET /api/demo/production — Simulates production with intentional drift.
+ *
+ * Contrasts with staging on 5+ dimensions:
+ * - content-type: text/json vs application/json → CONTENT_TYPE_DRIFT
+ * - cache-control: public,max-age=3600 vs no-store → CACHE_HEADER_DRIFT (critical)
+ * - www-authenticate: present vs absent → AUTH_CHALLENGE_PRESENT (critical)
+ * - access-control-*: different origin + methods → CORS_HEADER_DRIFT
+ * - ~200ms delay vs instant → TIMING_DRIFT
+ * - vary: Accept,Accept-Encoding vs Accept → UNKNOWN_DRIFT
+ */
+async function handleDemoProduction(): Promise<Response> {
+  // Artificial delay: scheduler.wait() in Workers runtime, setTimeout fallback for local dev
+  const s = globalThis as unknown as { scheduler?: { wait?: (ms: number) => Promise<void> } };
+  await (s.scheduler?.wait?.(200) ?? new Promise<void>(r => setTimeout(r, 200)));
+
+  return new Response(
+    JSON.stringify({ env: "production", version: "2.0.9", status: "healthy" }),
+    {
+      status: 200,
+      headers: {
+        "content-type": "text/json",
+        "cache-control": "public, max-age=3600",
+        "vary": "Accept, Accept-Encoding",
+        "www-authenticate": 'Bearer realm="api"',
+        "access-control-allow-origin": "https://app.example.com",
+        "access-control-allow-methods": "GET, POST",
+      },
+    }
+  );
 }
 
 /**

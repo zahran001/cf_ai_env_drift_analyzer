@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { CompareRequest, CompareResult, CompareError } from "@shared/api";
-import { startCompare, ApiError } from "./lib/api";
+import { startCompare, ApiError, getApiBase } from "./lib/api";
 import { useComparisonPoll } from "./hooks/useComparisonPoll";
 import { usePairHistory } from "./hooks/usePairHistory";
 import { ControlPlane } from "./components/ControlPlane";
@@ -50,6 +50,14 @@ export default function App() {
     setComparisonId(null);
   }
 
+  function handleDemoClick() {
+    const apiBase = getApiBase() || window.location.origin;
+    setLeftUrl(`${apiBase}/api/demo/staging`);
+    setRightUrl(`${apiBase}/api/demo/production`);
+    setLeftLabel("Staging");
+    setRightLabel("Production");
+  }
+
   function handleHistoryClick(entry: {
     leftUrl: string;
     rightUrl: string;
@@ -64,10 +72,24 @@ export default function App() {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>cf_ai_env_drift_analyzer</h1>
+      <h1 className={styles.title}>Cloudflare AI Environment Drift Analyzer</h1>
       <p className={styles.subtitle}>
         Compare two environments and get an explanation for drift.
       </p>
+
+      <div className={styles.demoRow}>
+        <button
+          type="button"
+          className={styles.demoButton}
+          onClick={handleDemoClick}
+          disabled={poll.status === "running"}
+        >
+          Try Demo
+        </button>
+        <span className={styles.demoHint}>
+          Pre-fills staging vs. production endpoints to showcase drift detection.
+        </span>
+      </div>
 
       <ErrorBanner error={submitError ?? poll.error} onDismiss={handleDismissError} />
 
@@ -113,6 +135,17 @@ export default function App() {
           <ResultDashboard result={poll.result} />
         </div>
       )}
+
+      <footer className={styles.footer}>
+        <a
+          href="https://github.com/zahran001/cf_ai_env_drift_analyzer"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.footerLink}
+        >
+          How it works
+        </a>
+      </footer>
     </div>
   );
 }

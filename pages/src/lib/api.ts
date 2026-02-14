@@ -11,7 +11,7 @@ import type {
  * In Jest, we default to empty string (relative URLs).
  */
 let _apiBase: string | undefined;
-function getApiBase(): string {
+export function getApiBase(): string {
   if (_apiBase !== undefined) {
     return _apiBase;
   }

@@ -15,7 +15,47 @@
 .subtitle {
   font-size: 14px;
   color: #6b7280;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
+}
+
+.demoRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.demoButton {
+  padding: 7px 16px;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #3b82f6;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 150ms ease, color 150ms ease;
+  white-space: nowrap;
+}
+
+.demoButton:hover:not(:disabled) {
+  background-color: #eff6ff;
+}
+
+.demoButton:active:not(:disabled) {
+  background-color: #dbeafe;
+}
+
+.demoButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.demoHint {
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .historySection {
@@ -80,6 +120,24 @@
   .title {
     font-size: 24px;
   }
+}
+
+.footer {
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  text-align: center;
+}
+
+.footerLink {
+  font-size: 13px;
+  color: #6b7280;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.footerLink:hover {
+  color: #3b82f6;
 }
 
 @media (min-width: 1025px) {

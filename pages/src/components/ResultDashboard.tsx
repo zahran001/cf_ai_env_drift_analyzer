@@ -5,7 +5,6 @@ import type { LlmExplanation } from "@shared/llm";
 import { SummaryStrip } from "./SummaryStrip";
 import { ExplanationPanel } from "./ExplanationPanel";
 import { FindingsList } from "./FindingsList";
-import { FindingDetailView } from "./FindingDetailView";
 import { RawDataView } from "./RawDataView";
 import styles from "./ResultDashboard.module.css";
 
@@ -39,10 +38,6 @@ export const ResultDashboard: FC<ResultDashboardProps> = ({ result }) => {
     setExpandedFindingId((prev) => (prev === findingId ? null : findingId));
   };
 
-  const expandedFinding = expandedFindingId
-    ? findings.find((f) => f.id === expandedFindingId) ?? null
-    : null;
-
   return (
     <div className={styles.container}>
       <SummaryStrip result={result} />
@@ -54,13 +49,6 @@ export const ResultDashboard: FC<ResultDashboardProps> = ({ result }) => {
         expandedId={expandedFindingId}
         onExpandClick={handleFindingClick}
       />
-
-      {expandedFinding && (
-        <FindingDetailView
-          finding={expandedFinding}
-          onClose={() => setExpandedFindingId(null)}
-        />
-      )}
 
       <RawDataView left={result.left} right={result.right} diff={diff} />
     </div>

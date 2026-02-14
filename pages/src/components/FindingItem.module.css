@@ -1,3 +1,8 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
 .row {
   display: flex;
   align-items: flex-start;
@@ -11,6 +16,11 @@
   text-align: left;
   font-size: 14px;
   width: 100%;
+}
+
+.detail {
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f9fafb;
 }
 
 .row:hover {
