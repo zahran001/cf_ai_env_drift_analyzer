@@ -27,6 +27,7 @@ build/
 # Wrangler / Cloudflare
 .wrangler/
 wrangler.toml.local
+.mcp.json
 
 # Development
 npm-debug.log
@@ -44,3 +45,4 @@ coverage/
 # Misc
 .cache/
 *.bak
+
